@@ -1,0 +1,88 @@
+name: Job bot
+
+on:
+  schedule:
+    - cron: '0 3 * * 1'    # weekly (Mon 03:00 UTC): scrape_job_boards
+    - cron: '30 3 * * *'   # daily (03:30 UTC): scrape_and_apply (capped)
+    - cron: '0 4 1 * *'    # monthly (1st, 04:00 UTC): validate_links
+    - cron: '0 5 1 * *'    # monthly (1st, 05:00 UTC): clean_sent_mailbox
+  workflow_dispatch:        # lets you trigger any/all jobs manually from the Actions tab
+
+jobs:
+  scrape_job_boards:
+    if: github.event.schedule == '0 3 * * 1' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements.txt
+      - run: python manage.py migrate --noinput
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      - run: python manage.py scrape_job_boards
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+  validate_links:
+    if: github.event.schedule == '0 4 1 * *' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements.txt
+      - run: python manage.py migrate --noinput
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      - run: python manage.py validate_links
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          RECEIVER_EMAIL: ${{ secrets.RECEIVER_EMAIL }}
+          DJANGO_ENV: production
+
+  scrape_and_apply:
+    if: github.event.schedule == '30 3 * * *' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements.txt
+      - run: python manage.py migrate --noinput
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      - run: python manage.py scrape_and_apply
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          EMAIL_USER: ${{ secrets.EMAIL_USER }}
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+          RECEIVER_EMAIL: ${{ secrets.RECEIVER_EMAIL }}
+          DJANGO_ENV: production
+
+  clean_sent_mailbox:
+    if: github.event.schedule == '0 5 1 * *' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements.txt
+      - run: python manage.py migrate --noinput
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      - run: python manage.py clean_sent_mailbox
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          EMAIL_USER: ${{ secrets.EMAIL_USER }}
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+          RECEIVER_EMAIL: ${{ secrets.RECEIVER_EMAIL }}
+          DJANGO_ENV: production

@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: dfms-backend
+    runtime: python
+    buildCommand: "./build.sh"
+    # The Start Command handles the DB work
+    startCommand: "python manage.py migrate --settings=dfms_backend.settings && python create_admin.py && gunicorn dfms_backend.wsgi:application"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.0
+      - key: DJANGO_SETTINGS_MODULE
+        value: dfms_backend.settings
+      - key: DATABASE_URL
+        sync: false # Set this manually in Render Dashboard to your Aiven URI
+      # These variables are used by your create_admin.py script
+      - key: DJANGO_SUPERUSER_USERNAME
+        value: admin
+      - key: DJANGO_SUPERUSER_PASSWORD
+        value: YourSecretPassword123 
+      - key: DJANGO_SUPERUSER_EMAIL
+        value: admin@example.com

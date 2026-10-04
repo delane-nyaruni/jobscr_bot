@@ -1,0 +1,54 @@
+# dependencies
+/node_modules
+/.pnp
+.pnp.js
+
+# testing
+/coverage
+
+# production
+/build
+
+# misc
+.DS_Store
+.env.local
+.env.development.local
+.env.dev
+.env.test.local
+.env.production.local
+.env.prod
+.env
+
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+
+backend/
+# python byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# virtual environments
+.venv/
+venv/
+ENV/
+.pytest_cache/
+
+# django
+db.sqlite3
+local_settings.py
+media/
+staticfiles/
+
+# IDE and os
+desktop.ini
+.early.coverage
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# temporary files
+TRASH/
