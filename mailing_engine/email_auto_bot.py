@@ -56,6 +56,6 @@ class Command(BaseCommand):
         receiver = getattr(settings, "RECEIVER_EMAIL", None)
         if not receiver:
             return
-        subject = f"Bot Log: {sent_count} Applications Sent success"
+        subject = f"Bot Log: {sent_count} Applications Sent Successfully"
         body = f"Automation complete. Successfully applied to {sent_count} companies today."
         EmailMessage(subject, body, to=[receiver]).send(fail_silently=True)
