@@ -107,7 +107,7 @@ DATABASES = {
         'ENGINE': 'django.db.backends.mysql',
         'NAME': 'defaultdb',
         'USER': 'avnadmin',
-        'PASSWORD': 'os.getenv('MYSQL_DB_PASSWORD')',
+        'PASSWORD': os.getenv('MYSQL_DB_PASSWORD'),
         'HOST': 'mysql-3ed8e01d-delaneoncodes-6fbe.b.aivencloud.com',
         'PORT': '12904',  
         'OPTIONS': {
