@@ -34,7 +34,7 @@ DatabaseFeatures.can_return_rows_from_bulk_insert = property(lambda self: False)
 SECRET_KEY = '!8&$#b_&!5wp$#(621b-(#0sy*b4t@q6s+8+qnc!#t_17md-m_'
 
 # <-- 4. Fetch DEBUG from .env. (os.getenv returns a string, so we check if it equals 'True') -->
-DEBUG = True
+DEBUG = False
 
 
 # Application definition
@@ -54,15 +54,15 @@ INSTALLED_APPS = [
     'rest_framework',
 ]
 
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
-# EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
-# EMAIL_HOST = "smtp.gmail.com"
-# EMAIL_PORT = 587
-# EMAIL_USE_TLS = True
-# EMAIL_HOST_USER = os.environ.get("EMAIL_USER")
-# EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_PASSWORD")
-# DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
-# RECEIVER_EMAIL = os.environ.get("RECEIVER_EMAIL")
+# EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_HOST = "smtp.gmail.com"
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = os.getenv("EMAIL_SENDER")
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_PASSWORD")
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+RECEIVER_EMAIL = os.getenv("EMAIL_RECEIVER")
 
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
@@ -102,19 +102,19 @@ WSGI_APPLICATION = 'dfms_backend.wsgi.application'
 
 # mysql
 
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.mysql',
-#         'NAME': 'defaultdb',
-#         'USER': 'avnadmin',
-#         'PASSWORD': os.getenv('MYSQL_DB_PASSWORD'),
-#         'HOST': 'mysql-3ed8e01d-delaneoncodes-6fbe.b.aivencloud.com',
-#         'PORT': '12904',  
-#         'OPTIONS': {
-#             'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
-#         },
-#     }
-# }
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': 'defaultdb',
+        'USER': 'avnadmin',
+        'PASSWORD': os.getenv('MYSQL_DB_PASSWORD'),
+        'HOST': 'mysql-3ed8e01d-delaneoncodes-6fbe.b.aivencloud.com',
+        'PORT': '12904',  
+        'OPTIONS': {
+            'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
+        },
+    }
+}
 
 # postgresdb
 
@@ -146,20 +146,20 @@ WSGI_APPLICATION = 'dfms_backend.wsgi.application'
 
 # mysqldb
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'jobscr',
-        'USER': 'root',
-        'PASSWORD': '',
-        'HOST': 'localhost',
-        'PORT': 3306,
-        'OPTIONS': {
-            'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
-        },
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.mysql',
+#         'NAME': 'jobscr',
+#         'USER': 'root',
+#         'PASSWORD': '',
+#         'HOST': 'localhost',
+#         'PORT': 3306,
+#         'OPTIONS': {
+#             'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
+#         },
         
-    }
-}
+#     }
+# }
 
 
 # Password validation
@@ -199,12 +199,12 @@ USE_I18N = True
 USE_TZ = True
 
 # production ready settings
-# SESSION_COOKIE_SECURE = True
-# CSRF_COOKIE_SECURE = True
-# SECURE_HSTS_SECONDS = True
-# SECURE_SSL_REDIRECT = True
-# SECURE_HSTS_INCLUDE_SUBDOMAINS = True
-# SECURE_HSTS_PRELOAD = True
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True
+SECURE_HSTS_SECONDS = True
+SECURE_SSL_REDIRECT = True
+SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+SECURE_HSTS_PRELOAD = True
 
 # Static files (CSS, JavaScript, Images)
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
