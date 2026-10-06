@@ -107,12 +107,14 @@ DATABASES = {
         'ENGINE': 'django.db.backends.mysql',
         'NAME': 'defaultdb',
         'USER': 'avnadmin',
-        'PASSWORD': os.getenv('MYSQL_DB_PASSWORD'),
+        'PASSWORD': 'AVNS_XJnqd3owbmvkbGaj1i3',
         'HOST': 'jobscr-mono-jobscr-mono.h.aivencloud.com',
         'OPTIONS': {
             'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
         },
-    } }
+    }
+}
+
 # postgresdb
 
 # DATABASES = {
