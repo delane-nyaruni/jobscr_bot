@@ -103,11 +103,11 @@ WSGI_APPLICATION = 'dfms_backend.wsgi.application'
 # mysql
 
 DATABASES = {
-    'default': {'PORT': '10252',
+    'default': 'PORT': '10252',
         'ENGINE': 'django.db.backends.mysql',
         'NAME': 'defaultdb',
         'USER': 'avnadmin',
-        'PASSWORD': 'AVNS_XJnqd3owbmvkbGaj1i3',
+        'PASSWORD': os.getenv('MYSQL_DB_PASSWORD'),
         'HOST': 'jobscr-mono-jobscr-mono.h.aivencloud.com',
         'OPTIONS': {
             'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
