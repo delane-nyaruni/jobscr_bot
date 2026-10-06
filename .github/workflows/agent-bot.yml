@@ -19,7 +19,7 @@ jobs:
         with:
           python-version: '3.12'
       - run: pip install -r requirements.txt
-      - run: python manage.py migrate --noinput
+      - run: python manage.py migrate --verbosity 3
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
       - run: python run_engine.py 
@@ -36,7 +36,7 @@ jobs:
         with:
           python-version: '3.12'
       - run: pip install -r requirements.txt
-      - run: python manage.py migrate --noinput
+      - run: python manage.py migrate --verbosity 3
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
       - run: python manage.py validate_links
@@ -55,7 +55,7 @@ jobs:
         with:
           python-version: '3.12'
       - run: pip install -r requirements.txt
-      - run: python manage.py migrate --noinput
+      - run: python manage.py migrate --verbosity 3
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
       - run: python manage.py scrape_and_apply
@@ -76,7 +76,7 @@ jobs:
         with:
           python-version: '3.12'
       - run: pip install -r requirements.txt
-      - run: python manage.py migrate --noinput
+      - run: python manage.py migrate --verbosity 3
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
       - run: python manage.py clean_sent_mailbox
