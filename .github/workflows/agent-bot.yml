@@ -9,7 +9,7 @@ on:
   workflow_dispatch:        # lets you trigger any/all jobs manually from the Actions tab
 
 jobs:
-  scrape_job_boards:
+  job_boards_spider:
     if: github.event.schedule == '0 3 * * 1' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -22,11 +22,11 @@ jobs:
       - run: python manage.py migrate --noinput
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-      - run: python manage.py scrape_job_boards
+      - run: python run_engine.py 
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
-  validate_links:
+  link_validater:
     if: github.event.schedule == '0 4 1 * *' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -45,7 +45,7 @@ jobs:
           RECEIVER_EMAIL: ${{ secrets.RECEIVER_EMAIL }}
           DJANGO_ENV: production
 
-  scrape_and_apply:
+  crawl_and_apply:
     if: github.event.schedule == '30 3 * * *' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 10

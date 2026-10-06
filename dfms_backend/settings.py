@@ -34,7 +34,7 @@ DatabaseFeatures.can_return_rows_from_bulk_insert = property(lambda self: False)
 SECRET_KEY = '!8&$#b_&!5wp$#(621b-(#0sy*b4t@q6s+8+qnc!#t_17md-m_'
 
 # <-- 4. Fetch DEBUG from .env. (os.getenv returns a string, so we check if it equals 'True') -->
-DEBUG = False
+DEBUG = True
 
 
 # Application definition
@@ -50,7 +50,7 @@ INSTALLED_APPS = [
     'api',
     'rest_framework_simplejwt',
     'users',
-    # 'mail',
+    'scrapping_engine',
     'rest_framework',
 ]
 
@@ -102,19 +102,19 @@ WSGI_APPLICATION = 'dfms_backend.wsgi.application'
 
 # mysql
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'defaultdb',
-        'USER': 'avnadmin',
-        'PASSWORD': os.getenv('MYSQL_DB_PASSWORD'),
-        'HOST': 'mysql-3ed8e01d-delaneoncodes-6fbe.b.aivencloud.com',
-        'PORT': '12904',  
-        'OPTIONS': {
-            'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
-        },
-    }
-}
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.mysql',
+#         'NAME': 'defaultdb',
+#         'USER': 'avnadmin',
+#         'PASSWORD': os.getenv('MYSQL_DB_PASSWORD'),
+#         'HOST': 'mysql-3ed8e01d-delaneoncodes-6fbe.b.aivencloud.com',
+#         'PORT': '12904',  
+#         'OPTIONS': {
+#             'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
+#         },
+#     }
+# }
 
 # postgresdb
 
@@ -146,20 +146,20 @@ DATABASES = {
 
 # mysqldb
 
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.mysql',
-#         'NAME': 'jobscr',
-#         'USER': 'root',
-#         'PASSWORD': '',
-#         'HOST': 'localhost',
-#         'PORT': 3306,
-#         'OPTIONS': {
-#             'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
-#         },
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': 'jobscr',
+        'USER': 'root',
+        'PASSWORD': '',
+        'HOST': 'localhost',
+        'PORT': 3306,
+        'OPTIONS': {
+            'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
+        },
         
-#     }
-# }
+    }
+}
 
 
 # Password validation
@@ -199,12 +199,12 @@ USE_I18N = True
 USE_TZ = True
 
 # production ready settings
-SESSION_COOKIE_SECURE = True
-CSRF_COOKIE_SECURE = True
-SECURE_HSTS_SECONDS = True
-SECURE_SSL_REDIRECT = True
-SECURE_HSTS_INCLUDE_SUBDOMAINS = True
-SECURE_HSTS_PRELOAD = True
+# SESSION_COOKIE_SECURE = True
+# CSRF_COOKIE_SECURE = True
+# SECURE_HSTS_SECONDS = True
+# SECURE_SSL_REDIRECT = True
+# SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+# SECURE_HSTS_PRELOAD = True
 
 # Static files (CSS, JavaScript, Images)
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
@@ -224,7 +224,6 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:8000",
     "http://192.168.100.12:54114",
     "http://192.168.43.12:54114",
-    "https://mdfms.netlify.app",
     "http://localhost:54114",
     "http://192.168.245.128:54114",
 ]
@@ -232,7 +231,6 @@ CORS_ALLOWED_ORIGINS = [
 CORS_ALLOW_ALL_ORIGINS = True
 ALLOWED_HOSTS = [
                   '*',
-                'https://dfms-backend-t05z.onrender.com',
                  '127.0.0.1',
                  'localhost',
                  '192.168.100.12',
