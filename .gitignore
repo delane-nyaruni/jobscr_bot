@@ -39,8 +39,8 @@ ENV/
 # django
 db.sqlite3
 local_settings.py
-media/
-staticfiles/
+# media/
+# staticfiles/
 
 # IDE and os
 desktop.ini
