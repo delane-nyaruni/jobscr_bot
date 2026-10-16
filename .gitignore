@@ -5,6 +5,8 @@
 
 # testing
 /coverage
+.early.*
+.early.coverage
 
 # production
 /build
@@ -44,7 +46,6 @@ local_settings.py
 
 # IDE and os
 desktop.ini
-.early.coverage
 .vscode/
 .idea/
 .DS_Store

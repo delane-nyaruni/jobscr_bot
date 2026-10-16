@@ -51,6 +51,8 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
     'users',
     'scrapping_engine',
+    'cleaning_engine',
+    'mailing_engine',
     'rest_framework',
 ]
 
@@ -134,7 +136,7 @@ DATABASES = {
 # DATABASES = {
 #     'default': {
 #         'ENGINE': 'django.db.backends.postgresql',
-#         'NAME': 'dfms',       
+#         'NAME': 'jobscr',       
 #         'USER': 'postgres',    
 #         'PASSWORD': 'root', 
 #         'HOST': 'localhost',

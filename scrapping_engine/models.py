@@ -3,9 +3,9 @@ from django.db import models
 
 class JobBoard(models.Model):
     """Sites the scraper crawls for job postings. Replaces leadsDB/job_leads.json['target_boards']."""
-    name = models.CharField(max_length=255, default="Unknown Board") # Added
+    name = models.CharField(max_length=255, default="Unknown Board")
     url = models.URLField(unique=True)
-    country = models.CharField(max_length=100, default="Zimbabwe") # Added
+    country = models.CharField(max_length=100, default="Zimbabwe")
     is_active = models.BooleanField(default=True)
 
     def __str__(self):
@@ -14,9 +14,9 @@ class JobBoard(models.Model):
 
 class CandidateCV(models.Model):
     """Stores the CVs uploaded by the user. Extracts the target role for scraping."""
-    filename = models.CharField(max_length=255, unique=True) # e.g., Delane_Nyaruni_Software_Engineer_CV.pdf
+    filename = models.CharField(max_length=255, unique=True)
     full_name = models.CharField(max_length=255)
-    target_role = models.CharField(max_length=255) # e.g., Software Engineer
+    target_role = models.CharField(max_length=255)
     uploaded_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -41,18 +41,19 @@ class JobLead(models.Model):
     job_board = models.ForeignKey(JobBoard, on_delete=models.CASCADE, related_name="job_leads")
     
     # The specific role we searched for (extracted from CV)
-    cv_career = models.CharField(max_length=255) 
+    cv_career = models.CharField(max_length=255)
     
     # Details of the specific job posting
     job_title = models.CharField(max_length=255, blank=True, default="N/A")
-    job_url = models.URLField() # Added
-    email_link = models.EmailField() # Renamed from 'email' as per your request
+    job_url = models.URLField()
+    email_link = models.EmailField()
     job_type = models.CharField(max_length=100, blank=True, default="Remote/Full-time")
     country = models.CharField(max_length=100, default="Zimbabwe")
     
     found_at = models.DateTimeField(auto_now_add=True)
     applied = models.BooleanField(default=False)
     applied_at = models.DateTimeField(null=True, blank=True)
+    is_reported = models.BooleanField(default=False)
 
     class Meta:
         # Prevent scraping the same email from the exact same job posting multiple times

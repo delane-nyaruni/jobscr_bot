@@ -1,77 +1,108 @@
-
+import os
 import imaplib
+import smtplib
+from datetime import datetime
+from email.message import EmailMessage
+import django
 
-from django.conf import settings
-from django.core.mail import EmailMessage
-from django.core.management.base import BaseCommand
-from django.utils import timezone
+# 1. SETUP DJANGO ENVIRONMENT
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'dfms_backend.settings')
+django.setup()
 
-from leads.models import CleanupRun, MailCleanupTarget
+from scrapping_engine.models import CleanupRun, MailCleanupTarget
 
 IMAP_SERVER = "imap.gmail.com"
 
+def send_summary_email(total_count, detailed_log, sender_email, sender_pass, receiver_email):
+    """Sends the cleanup summary report via SMTP."""
+    subject = f"Cleanup Report: {datetime.now().strftime('%Y-%m-%d')}"
+    body = (
+        "Email Cleanup Automation Summary\n"
+        "---------------------------------------------\n"
+        "Status: SUCCESS\n"
+        f"Total Deleted: {total_count}\n"
+        f"Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
+        f"Details by sender:\n{detailed_log}\n\n"
+        "This is an automated report from Jobscr Email Cleaner."
+    )
 
-class Command(BaseCommand):
-    help = "Delete inbox mail from addresses flagged in MailCleanupTarget."
+    msg = EmailMessage()
+    msg['Subject'] = subject
+    msg['From'] = sender_email
+    msg['To'] = receiver_email
+    msg.set_content(body)
 
-    def handle(self, *args, **options):
-        targets = list(MailCleanupTarget.objects.values_list("email", flat=True))
-        if not targets:
-            self.stdout.write("No cleanup targets configured.")
-            return
+    try:
+        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
+            smtp.login(sender_email, sender_pass)
+            smtp.send_message(msg)
+        print("  [+] Summary email sent successfully.")
+    except Exception as e:
+        print(f"  [!] SMTP Error sending summary: {e}")
 
-        email_user = getattr(settings, "EMAIL_HOST_USER", None)
-        email_password = getattr(settings, "EMAIL_HOST_PASSWORD", None)
-        if not email_user or not email_password:
-            self.stderr.write("Mailbox credentials missing (EMAIL_HOST_USER / EMAIL_HOST_PASSWORD).")
-            return
 
-        total_deleted = 0
-        detail_lines = []
+def run_cleanup():
+    print("\n--- STARTING MAILBOX CLEANUP ---")
+    
+    # 1. Get targets from the database
+    targets = list(MailCleanupTarget.objects.values_list("email", flat=True))
+    if not targets:
+        print("  [-] No cleanup targets configured in the database.")
+        return
 
-        try:
-            mail = imaplib.IMAP4_SSL(IMAP_SERVER)
-            mail.login(email_user, email_password)
-            mail.select('"[Gmail]/All Mail"')
+    # 2. Load credentials
+    email_user = os.environ.get("EMAIL_USER")
+    email_password = os.environ.get("EMAIL_PASSWORD")
+    receiver_email = os.environ.get("RECEIVER_EMAIL")
 
-            for target in targets:
-                status, messages = mail.search(None, f'(FROM "{target}")')
-                count = 0
-                if status == "OK" and messages[0]:
-                    mail_ids = messages[0].split()
-                    count = len(mail_ids)
-                    for m_id in mail_ids:
-                        mail.copy(m_id, '"[Gmail]/Trash"')
-                        mail.store(m_id, "+FLAGS", "\\Deleted")
-                    total_deleted += count
-                detail_lines.append(f"- {target}: {count} emails")
+    if not email_user or not email_password:
+        print("  [!] Missing EMAIL_USER or EMAIL_PASSWORD environment variables.")
+        return
 
-            mail.expunge()
-            mail.logout()
-        except Exception as exc:
-            self.stderr.write(f"Cleanup failed: {exc}")
-            return
+    total_deleted = 0
+    detail_lines = []
 
-        detail = "\n".join(detail_lines)
-        CleanupRun.objects.create(total_deleted=total_deleted, detail=detail)
+    # 3. Connect and clean
+    try:
+        print(f"  [*] Connecting to {IMAP_SERVER} as {email_user}...")
+        mail = imaplib.IMAP4_SSL(IMAP_SERVER)
+        mail.login(email_user, email_password)
+        mail.select('"[Gmail]/All Mail"')
 
-        if total_deleted > 0:
-            self._send_summary(total_deleted, detail)
-        else:
-            self.stdout.write("Nothing deleted. No report sent.")
+        for target in targets:
+            print(f"  [*] Searching for emails from: {target}")
+            status, messages = mail.search(None, f'(FROM "{target}")')
+            count = 0
+            if status == "OK" and messages[0]:
+                mail_ids = messages[0].split()
+                count = len(mail_ids)
+                for m_id in mail_ids:
+                    mail.copy(m_id, '"[Gmail]/Trash"')
+                    mail.store(m_id, "+FLAGS", "\\Deleted")
+                total_deleted += count
+            detail_lines.append(f"- {target}: {count} emails")
 
-    def _send_summary(self, total_count, detailed_log):
-        receiver = getattr(settings, "RECEIVER_EMAIL", None)
-        if not receiver:
-            return
-        subject = f"Cleanup Report: {timezone.now():%Y-%m-%d}"
-        body = (
-            "Email Cleanup Automation Summary\n"
-            "---------------------------------------------\n"
-            f"Status: SUCCESS\n"
-            f"Total Deleted: {total_count}\n"
-            f"Date: {timezone.now():%Y-%m-%d %H:%M:%S}\n\n"
-            f"Details by sender:\n{detailed_log}\n\n"
-            "This is an automated report from GitHub Actions."
-        )
-        EmailMessage(subject, body, to=[receiver]).send(fail_silently=True)
+        mail.expunge()
+        mail.logout()
+        print(f"  [+] Successfully deleted {total_deleted} emails.")
+
+    except Exception as exc:
+        print(f"  [!] IMAP Cleanup failed: {exc}")
+        return
+
+    # 4. Save run to database
+    detail = "\n".join(detail_lines)
+    CleanupRun.objects.create(total_deleted=total_deleted, detail=detail)
+    print("  [+] Cleanup run saved to database.")
+
+    # 5. Send report if anything was deleted
+    if total_deleted > 0 and receiver_email:
+        send_summary_email(total_deleted, detail, email_user, email_password, receiver_email)
+    elif total_deleted == 0:
+        print("  [-] Nothing deleted. No report sent.")
+
+
+if __name__ == "__main__":
+    print("Initializing Mailbox Cleanup Engine...")
+    run_cleanup()
+    print("\nCleanup run complete.")
