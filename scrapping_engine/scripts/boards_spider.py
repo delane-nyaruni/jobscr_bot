@@ -4,11 +4,9 @@ import time
 import django
 import requests
 import smtplib
-import xml.etree.ElementTree as ET
 from datetime import datetime
 from email.message import EmailMessage
-from bs4 import BeautifulSoup
-from urllib.parse import urlparse, parse_qs, unquote
+from urllib.parse import urlparse
 
 # Project root is three levels up: scripts/ -> scrapping_engine/ -> project root
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -19,7 +17,7 @@ django.setup()
 from scrapping_engine.models import JobBoard
 from utilities.seed_utils import load_json, save_json
 
-# Simple, unquoted queries - quoted phrases break Bing RSS
+# Targeted queries for Zimbabwe job boards
 SEARCH_QUERIES = [
     "zimbabwe job vacancies",
     "zimbabwe jobs recruitment",
@@ -32,9 +30,7 @@ HEADERS = {
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
         "AppleWebKit/537.36 (KHTML, like Gecko) "
         "Chrome/120.0.0.0 Safari/537.36"
-    ),
-    "Accept-Language": "en-US,en;q=0.9",
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    )
 }
 
 NON_JOB_BOARD_DOMAINS = [
@@ -53,60 +49,34 @@ JOB_KEYWORDS = [
 ]
 
 
-def search_bing_rss(query):
-    """Bing RSS feed without broken mkt param, using cc=zw for Zimbabwe."""
+def search_via_tavily(query):
+    """
+    Uses Tavily's keyless API for web search.
+    No API key, no account, no credit card required.
+    Docs: https://docs.tavily.com/documentation/keyless
+    """
     results = []
     try:
-        url = (
-            f"https://www.bing.com/search"
-            f"?q={requests.utils.quote(query)}"
-            f"&format=rss&cc=zw&count=20"
+        response = requests.post(
+            "https://api.tavily.com/search",
+            headers={
+                "Content-Type": "application/json",
+                "X-Tavily-Access-Mode": "keyless",
+            },
+            json={
+                "query": query,
+                "max_results": 10,
+                "search_depth": "basic",
+            },
+            timeout=20,
         )
-        response = requests.get(url, headers=HEADERS, timeout=15)
-
-        root = ET.fromstring(response.content)
-        for item in root.findall('.//item'):
-            link = item.find('link')
-            if link is not None and link.text and link.text.startswith('http'):
-                results.append(link.text)
-
+        data = response.json()
+        for item in data.get("results", []):
+            url = item.get("url", "")
+            if url.startswith("http"):
+                results.append(url)
     except Exception as e:
-        print(f"      [!] Bing RSS error: {e}")
-    return results
-
-
-def search_duckduckgo_lite(query):
-    """DuckDuckGo Lite endpoint (more lenient than html.duckduckgo.com)."""
-    results = []
-    try:
-        url = f"https://lite.duckduckgo.com/lite/?q={requests.utils.quote(query)}"
-        response = requests.get(url, headers=HEADERS, timeout=15)
-
-        if response.status_code == 202:
-            print("      [!] DuckDuckGo returned CAPTCHA (202).")
-            return results
-
-        soup = BeautifulSoup(response.text, 'html.parser')
-
-        # Lite version uses 'result-link' class for URL anchors
-        for link in soup.find_all('a', class_='result-link'):
-            href = link.get('href', '')
-            if href.startswith('http'):
-                results.append(href)
-
-        # Fallback: some versions wrap in redirect
-        if not results:
-            for link in soup.find_all('a', href=True):
-                href = link['href']
-                if 'uddg=' in href:
-                    parsed = parse_qs(urlparse(href).query)
-                    if 'uddg' in parsed:
-                        href = unquote(parsed['uddg'][0])
-                if href.startswith('http') and 'duckduckgo' not in href:
-                    results.append(href)
-
-    except Exception as e:
-        print(f"      [!] DuckDuckGo Lite error: {e}")
+        print(f"      [!] Tavily API error: {e}")
     return results
 
 
@@ -114,17 +84,12 @@ def is_valid_job_board(url):
     """Strict filter: domain or path must contain a job keyword."""
     try:
         domain = urlparse(url).netloc.lower().replace('www.', '')
-
         if any(skip in domain for skip in NON_JOB_BOARD_DOMAINS):
             return False, None
-
         if '.' not in domain:
             return False, None
-
-        # Require a job keyword in the full URL
         if not any(kw in url.lower() for kw in JOB_KEYWORDS):
             return False, None
-
         name = domain.split('.')[0].capitalize()
         return True, name
     except Exception:
@@ -132,7 +97,7 @@ def is_valid_job_board(url):
 
 
 def _get_env(*names):
-    """Returns the first non-empty env variable from a list of names."""
+    """Returns the first non-empty environment variable from a list."""
     for name in names:
         value = os.environ.get(name)
         if value:
@@ -144,7 +109,7 @@ def send_summary_email(new_staged, total_pending, error_log):
     """Sends a summary email after every run."""
     print("\n--- GENERATING EMAIL REPORT ---")
 
-    # Accept BOTH naming conventions so GitHub Secrets don't need to change
+    # Accept BOTH naming conventions so existing GitHub Secrets work
     sender = _get_env('EMAIL_USER', 'EMAIL_SENDER')
     password = os.environ.get('EMAIL_PASSWORD')
     receiver = _get_env('RECEIVER_EMAIL', 'EMAIL_RECEIVER')
@@ -159,6 +124,7 @@ def send_summary_email(new_staged, total_pending, error_log):
 
     if missing:
         print(f"  [!] Missing secrets: {', '.join(missing)}. Skipping email.")
+        print("      Add them at: GitHub Repo -> Settings -> Secrets and variables -> Actions.")
         return
 
     subject = f"Board Discovery Report: {new_staged} New - {datetime.now().strftime('%Y-%m-%d')}"
@@ -200,9 +166,9 @@ def send_summary_email(new_staged, total_pending, error_log):
 def discover_boards():
     print("\n--- STARTING JOB BOARD DISCOVERY ---")
 
-    known_urls = set(JobBoard.objects.values_list('url', flat=True))
+    # Load existing URLs from DB and pending file
     known_domains = set()
-    for url in known_urls:
+    for url in JobBoard.objects.values_list('url', flat=True):
         try:
             known_domains.add(urlparse(url).netloc.lower().replace('www.', ''))
         except Exception:
@@ -228,25 +194,17 @@ def discover_boards():
 
         print(f"\n  Searching: {query}")
 
-        # Engine 1: Bing RSS
-        print("    [1/2] Bing RSS...")
-        bing = search_bing_rss(query)
-        print(f"          -> {len(bing)} raw links")
-        time.sleep(2)
+        # Use Tavily API (keyless, reliable)
+        print("    [*] Searching via Tavily API...")
+        urls = search_via_tavily(query)
+        print(f"          -> {len(urls)} raw links")
+        time.sleep(2)  # Be polite even with API
 
-        # Engine 2: DuckDuckGo Lite
-        print("    [2/2] DuckDuckGo Lite...")
-        ddg = search_duckduckgo_lite(query)
-        print(f"          -> {len(ddg)} raw links")
-        time.sleep(2)
-
-        all_urls = bing + ddg
-
-        if not all_urls:
-            error_log.append(f"Both engines returned 0 results for '{query}'")
+        if not urls:
+            error_log.append(f"Tavily returned 0 results for '{query}'")
             continue
 
-        for url in all_urls:
+        for url in urls:
             if new_staged >= max_stage:
                 break
 
@@ -270,6 +228,7 @@ def discover_boards():
             print(f"      [+] Staged: {name} ({domain})")
             new_staged += 1
 
+    # Save the updated pending list
     save_json('pending_boards.json', pending)
     print(f"\n  [*] Discovery complete. {new_staged} new boards staged.")
 
