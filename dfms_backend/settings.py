@@ -227,7 +227,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://192.168.43.12:54114",
     "http://localhost:54114",
     "http://192.168.245.128:54114",
-    "https://jobscr-bot-fork.onrender.com/admin/mailing_engine/",
+    "https://jobscr-bot-fork.onrender.com",
 ]
 
 CORS_ALLOW_ALL_ORIGINS = True
@@ -239,6 +239,6 @@ ALLOWED_HOSTS = [
                  '0.0.0.0',
                  '192.168.43.12',
                  ' http://localhost:54114',
-                 'https://jobscr-bot-fork.onrender.com/admin/mailing_engine/',
+                 'https://jobscr-bot-fork.onrender.com',
                  
                  ]
