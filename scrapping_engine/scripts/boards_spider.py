@@ -17,7 +17,6 @@ django.setup()
 from scrapping_engine.models import JobBoard
 from utilities.seed_utils import load_json, save_json
 
-# Targeted queries for Zimbabwe job boards
 SEARCH_QUERIES = [
     "zimbabwe job vacancies",
     "zimbabwe jobs recruitment",
@@ -25,18 +24,18 @@ SEARCH_QUERIES = [
     "bulawayo job vacancies",
 ]
 
-HEADERS = {
-    "User-Agent": (
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-        "AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/120.0.0.0 Safari/537.36"
-    )
-}
-
 NON_JOB_BOARD_DOMAINS = [
+    # Social media
     "facebook.com", "twitter.com", "linkedin.com", "youtube.com",
     "instagram.com", "wikipedia.org", "reddit.com", "tiktok.com",
-    "google.com", "bing.com", "duckduckgo.com", "pinterest.com", "yahoo.com",
+    "pinterest.com", "yahoo.com",
+    # Search engines
+    "google.com", "bing.com", "duckduckgo.com",
+    # Global aggregators (anti-bot blocks make them useless)
+    "indeed.com", "ziprecruiter.com", "glassdoor.com", "monster.com",
+    # Government / embassy / council
+    "usembassy.gov", "gov.zw", "citybyo.co.zw", "hararecity.co.zw",
+    # Travel / tourism noise
     "britannica.com", "tripadvisor.com", "worldatlas.com", "mapquest.com",
     "visitseattle.org", "seattle.gov", "pindula.co.zw", "newzimbabwe.com",
     "zimfieldguide.com", "greatzimbabweguide.com", "zimbabwetourism.net",
@@ -50,11 +49,7 @@ JOB_KEYWORDS = [
 
 
 def search_via_tavily(query):
-    """
-    Uses Tavily's keyless API for web search.
-    No API key, no account, no credit card required.
-    Docs: https://docs.tavily.com/documentation/keyless
-    """
+    """Tavily keyless API - no account or card required."""
     results = []
     try:
         response = requests.post(
@@ -81,15 +76,21 @@ def search_via_tavily(query):
 
 
 def is_valid_job_board(url):
-    """Strict filter: domain or path must contain a job keyword."""
+    """Strict filter: domain must look like a job board, not noise."""
     try:
         domain = urlparse(url).netloc.lower().replace('www.', '')
+
+        # Reject blacklisted domains (partial match catches subdomains)
         if any(skip in domain for skip in NON_JOB_BOARD_DOMAINS):
             return False, None
+
         if '.' not in domain:
             return False, None
+
+        # Require a job keyword in the URL
         if not any(kw in url.lower() for kw in JOB_KEYWORDS):
             return False, None
+
         name = domain.split('.')[0].capitalize()
         return True, name
     except Exception:
@@ -109,7 +110,6 @@ def send_summary_email(new_staged, total_pending, error_log):
     """Sends a summary email after every run."""
     print("\n--- GENERATING EMAIL REPORT ---")
 
-    # Accept BOTH naming conventions so existing GitHub Secrets work
     sender = _get_env('EMAIL_USER', 'EMAIL_SENDER')
     password = os.environ.get('EMAIL_PASSWORD')
     receiver = _get_env('RECEIVER_EMAIL', 'EMAIL_RECEIVER')
@@ -124,7 +124,7 @@ def send_summary_email(new_staged, total_pending, error_log):
 
     if missing:
         print(f"  [!] Missing secrets: {', '.join(missing)}. Skipping email.")
-        print("      Add them at: GitHub Repo -> Settings -> Secrets and variables -> Actions.")
+        print("      Fix: Add these under GitHub Repo -> Settings -> Secrets and variables -> Actions.")
         return
 
     subject = f"Board Discovery Report: {new_staged} New - {datetime.now().strftime('%Y-%m-%d')}"
@@ -166,7 +166,6 @@ def send_summary_email(new_staged, total_pending, error_log):
 def discover_boards():
     print("\n--- STARTING JOB BOARD DISCOVERY ---")
 
-    # Load existing URLs from DB and pending file
     known_domains = set()
     for url in JobBoard.objects.values_list('url', flat=True):
         try:
@@ -193,12 +192,10 @@ def discover_boards():
             break
 
         print(f"\n  Searching: {query}")
-
-        # Use Tavily API (keyless, reliable)
         print("    [*] Searching via Tavily API...")
         urls = search_via_tavily(query)
         print(f"          -> {len(urls)} raw links")
-        time.sleep(2)  # Be polite even with API
+        time.sleep(2)
 
         if not urls:
             error_log.append(f"Tavily returned 0 results for '{query}'")
@@ -228,7 +225,6 @@ def discover_boards():
             print(f"      [+] Staged: {name} ({domain})")
             new_staged += 1
 
-    # Save the updated pending list
     save_json('pending_boards.json', pending)
     print(f"\n  [*] Discovery complete. {new_staged} new boards staged.")
 
