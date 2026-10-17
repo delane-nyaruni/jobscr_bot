@@ -4,9 +4,9 @@ import time
 import django
 import requests
 import smtplib
+import xml.etree.ElementTree as ET
 from datetime import datetime
 from email.message import EmailMessage
-from bs4 import BeautifulSoup
 from urllib.parse import urlparse
 
 # Project root is three levels up: scripts/ -> scrapping_engine/ -> project root
@@ -19,8 +19,8 @@ from scrapping_engine.models import JobBoard
 from utilities.seed_utils import load_json, save_json
 
 SEARCH_QUERIES = [
-    " job vacancies",
-    " careers site:.co.zw",
+    "zimbabwe job vacancies",
+    "zimbabwe careers site:.co.zw",
     "harare jobs recruitment",
     "bulawayo vacancies",
 ]
@@ -41,18 +41,19 @@ NON_JOB_BOARD_DOMAINS = [
 
 
 def search_bing_rss(query):
-    """Uses Bing's RSS feed, which is rarely blocked by CAPTCHAs."""
+    """Uses Bing's RSS feed and Python's built-in XML parser."""
     results = []
     try:
         url = f"https://www.bing.com/search?q={requests.utils.quote(query)}&format=rss"
         response = requests.get(url, headers=HEADERS, timeout=15)
         
-        # Parse as XML instead of HTML
-        soup = BeautifulSoup(response.text, 'xml')
+        # Parse using Python's built-in xml library
+        root = ET.fromstring(response.content)
         
-        for item in soup.find_all('item'):
+        # Find all <item> tags and extract the <link>
+        for item in root.findall('.//item'):
             link = item.find('link')
-            if link and link.text.startswith('http'):
+            if link is not None and link.text and link.text.startswith('http'):
                 results.append(link.text)
                 
     except Exception as e:
@@ -79,12 +80,13 @@ def send_summary_email(new_staged, total_pending, error_log):
     """Sends a summary email after every run, even if 0 boards were found."""
     print("\n--- GENERATING EMAIL REPORT ---")
     
-    sender = os.environ.get('EMAIL_SENDER')
+    # Matches the secrets we set up: EMAIL_USER, EMAIL_PASSWORD, RECEIVER_EMAIL
+    sender = os.environ.get('EMAIL_USER')
     password = os.environ.get('EMAIL_PASSWORD')
-    receiver = os.environ.get('EMAIL_RECEIVER')
+    receiver = os.environ.get('RECEIVER_EMAIL')
 
     if not sender or not password or not receiver:
-        print("  [!] Missing EMAIL_SENDER, EMAIL_PASSWORD, or RECEIVER_EMAIL. Skipping email.")
+        print("  [!] Missing EMAIL_USER, EMAIL_PASSWORD, or RECEIVER_EMAIL. Skipping email.")
         print("      Make sure these are added to your GitHub Repository Secrets.")
         return
 
