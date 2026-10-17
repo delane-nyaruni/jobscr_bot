@@ -7,7 +7,7 @@ import smtplib
 from datetime import datetime
 from email.message import EmailMessage
 from bs4 import BeautifulSoup
-from urllib.parse import urlparse, parse_qs, unquote
+from urllib.parse import urlparse
 
 # Project root is three levels up: scripts/ -> scrapping_engine/ -> project root
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -40,46 +40,23 @@ NON_JOB_BOARD_DOMAINS = [
 ]
 
 
-def search_duckduckgo(query):
+def search_bing_rss(query):
+    """Uses Bing's RSS feed, which is rarely blocked by CAPTCHAs."""
     results = []
     try:
-        # Use the lighter, more scrape-friendly endpoint
-        url = f"https://lite.duckduckgo.com/lite/?q={requests.utils.quote(query)}"
+        url = f"https://www.bing.com/search?q={requests.utils.quote(query)}&format=rss"
         response = requests.get(url, headers=HEADERS, timeout=15)
         
-        # If we get a 202, it means DDG is challenging us with a CAPTCHA
-        if response.status_code == 202:
-            print("      [!] DuckDuckGo blocked the request (CAPTCHA).")
-            return results
-
-        soup = BeautifulSoup(response.text, 'html.parser')
+        # Parse as XML instead of HTML
+        soup = BeautifulSoup(response.text, 'xml')
         
-        # Lite version uses 'result-link' class for URLs
-        for link in soup.find_all('a', class_='result-link'):
-            href = link.get('href', '')
-            if href.startswith('http'):
-                results.append(href)
+        for item in soup.find_all('item'):
+            link = item.find('link')
+            if link and link.text.startswith('http'):
+                results.append(link.text)
                 
     except Exception as e:
-        print(f"      [!] DuckDuckGo error: {e}")
-    return results
-
-
-def search_bing(query):
-    results = []
-    try:
-        url = f"https://www.bing.com/search?q={requests.utils.quote(query)}&count=20"
-        response = requests.get(url, headers=HEADERS, timeout=15)
-        soup = BeautifulSoup(response.text, 'html.parser')
-        
-        # Bing has been changing classes. This looks for <h2> tags inside search results
-        for h2 in soup.find_all('h2'):
-            link = h2.find('a', href=True)
-            if link and link['href'].startswith('http'):
-                results.append(link['href'])
-                
-    except Exception as e:
-        print(f"      [!] Bing error: {e}")
+        print(f"      [!] Bing RSS error: {e}")
     return results
 
 
@@ -90,6 +67,8 @@ def is_valid_job_board(url):
             return False, None
         if '.' not in domain:
             return False, None
+        
+        # Clean up the name (e.g. "zimbajob.co.zw" -> "Zimbajob")
         name = domain.split('.')[0].capitalize()
         return True, name
     except Exception:
@@ -104,8 +83,9 @@ def send_summary_email(new_staged, total_pending, error_log):
     password = os.environ.get('EMAIL_PASSWORD')
     receiver = os.environ.get('RECEIVER_EMAIL')
 
-    if not all([sender, password, receiver]):
+    if not sender or not password or not receiver:
         print("  [!] Missing EMAIL_USER, EMAIL_PASSWORD, or RECEIVER_EMAIL. Skipping email.")
+        print("      Make sure these are added to your GitHub Repository Secrets.")
         return
 
     subject = f"Board Discovery Report: {new_staged} New - {datetime.now().strftime('%Y-%m-%d')}"
@@ -170,22 +150,17 @@ def discover_boards():
 
     for query in SEARCH_QUERIES:
         print(f"\n  Searching: {query}")
-
-        all_urls = []
         
-        print("    [1/2] DuckDuckGo...")
-        ddg_results = search_duckduckgo(query)
-        if not ddg_results:
-            error_log.append(f"DuckDuckGo returned 0 results for '{query}'")
-        all_urls.extend(ddg_results)
-        time.sleep(2)
+        print("    [*] Fetching Bing RSS results...")
+        all_urls = search_bing_rss(query)
         
-        print("    [2/2] Bing...")
-        bing_results = search_bing(query)
-        if not bing_results:
+        if not all_urls:
             error_log.append(f"Bing returned 0 results for '{query}'")
-        all_urls.extend(bing_results)
-        time.sleep(2)
+            print("      [-] 0 results found.")
+        else:
+            print(f"      [+] Found {len(all_urls)} raw links.")
+
+        time.sleep(2) # Be polite to Bing
 
         for url in all_urls:
             if new_staged >= 20:
