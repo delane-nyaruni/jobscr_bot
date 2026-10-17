@@ -1,4 +1,4 @@
-name: Job Boards Spider
+name: Job Boards Cleaner
 
 on:
   schedule:
@@ -21,6 +21,7 @@ jobs:
       - run: python cleaning_engine/scripts/clean_mailbox.py
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          EMAIL_USER: ${{ secrets.EMAIL_USER }}
+          MYSQL_DB_PASSWORD: ${{ secrets.MYSQL_DB_PASSWORD }}
+          EMAIL_SENDER: ${{ secrets.EMAIL_SENDER }}
           EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
-          RECEIVER_EMAIL: ${{ secrets.RECEIVER_EMAIL }}
+          EMAIL_RECEIVER: ${{ secrets.EMAIL_RECEIVER }}
