@@ -110,9 +110,9 @@ def send_summary_email(new_staged, total_pending, error_log):
     """Sends a summary email after every run."""
     print("\n--- GENERATING EMAIL REPORT ---")
 
-    sender = _get_env('EMAIL_USER', 'EMAIL_SENDER')
-    password = os.environ.get('EMAIL_PASSWORD')
-    receiver = _get_env('RECEIVER_EMAIL', 'EMAIL_RECEIVER')
+    sender = os.getenv('EMAIL_SENDER')
+    password = os.getenv('EMAIL_PASSWORD')
+    receiver = os.getenv('EMAIL_RECEIVER')
 
     missing = []
     if not sender:
