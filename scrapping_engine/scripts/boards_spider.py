@@ -3,6 +3,9 @@ import sys
 import time
 import django
 import requests
+import smtplib
+from datetime import datetime
+from email.message import EmailMessage
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse, parse_qs, unquote
 
@@ -33,24 +36,30 @@ HEADERS = {
 NON_JOB_BOARD_DOMAINS = [
     "facebook.com", "twitter.com", "linkedin.com", "youtube.com",
     "instagram.com", "wikipedia.org", "reddit.com", "tiktok.com",
-    "google.com", "bing.com", "duckduckgo.com", "pinterest.com",
+    "google.com", "bing.com", "duckduckgo.com", "pinterest.com", "yahoo.com"
 ]
 
 
 def search_duckduckgo(query):
     results = []
     try:
-        url = f"https://html.duckduckgo.com/html/?q={requests.utils.quote(query)}"
+        # Use the lighter, more scrape-friendly endpoint
+        url = f"https://lite.duckduckgo.com/lite/?q={requests.utils.quote(query)}"
         response = requests.get(url, headers=HEADERS, timeout=15)
+        
+        # If we get a 202, it means DDG is challenging us with a CAPTCHA
+        if response.status_code == 202:
+            print("      [!] DuckDuckGo blocked the request (CAPTCHA).")
+            return results
+
         soup = BeautifulSoup(response.text, 'html.parser')
-        for link in soup.find_all('a', class_='result__url'):
+        
+        # Lite version uses 'result-link' class for URLs
+        for link in soup.find_all('a', class_='result-link'):
             href = link.get('href', '')
-            if 'uddg=' in href:
-                parsed = parse_qs(urlparse(href).query)
-                if 'uddg' in parsed:
-                    href = unquote(parsed['uddg'][0])
             if href.startswith('http'):
                 results.append(href)
+                
     except Exception as e:
         print(f"      [!] DuckDuckGo error: {e}")
     return results
@@ -62,10 +71,13 @@ def search_bing(query):
         url = f"https://www.bing.com/search?q={requests.utils.quote(query)}&count=20"
         response = requests.get(url, headers=HEADERS, timeout=15)
         soup = BeautifulSoup(response.text, 'html.parser')
-        for item in soup.find_all('li', class_='b_algo'):
-            link = item.find('a', href=True)
+        
+        # Bing has been changing classes. This looks for <h2> tags inside search results
+        for h2 in soup.find_all('h2'):
+            link = h2.find('a', href=True)
             if link and link['href'].startswith('http'):
                 results.append(link['href'])
+                
     except Exception as e:
         print(f"      [!] Bing error: {e}")
     return results
@@ -82,6 +94,54 @@ def is_valid_job_board(url):
         return True, name
     except Exception:
         return False, None
+
+
+def send_summary_email(new_staged, total_pending, error_log):
+    """Sends a summary email after every run, even if 0 boards were found."""
+    print("\n--- GENERATING EMAIL REPORT ---")
+    
+    sender = os.environ.get('EMAIL_USER')
+    password = os.environ.get('EMAIL_PASSWORD')
+    receiver = os.environ.get('RECEIVER_EMAIL')
+
+    if not all([sender, password, receiver]):
+        print("  [!] Missing EMAIL_USER, EMAIL_PASSWORD, or RECEIVER_EMAIL. Skipping email.")
+        return
+
+    subject = f"Board Discovery Report: {new_staged} New - {datetime.now().strftime('%Y-%m-%d')}"
+    
+    body = (
+        "Job Board Discovery Run Summary\n"
+        "---------------------------------------------\n"
+        f"Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
+        f"New boards staged: {new_staged}\n"
+        f"Total boards in pending list: {total_pending}\n\n"
+    )
+
+    if error_log:
+        body += f"Errors encountered during run:\n{error_log}\n\n"
+
+    if new_staged > 0:
+        body += "Please check `seed/pending_boards.json` in your repository to review the new boards and promote the good ones to `jobboards.json`.\n\n"
+    else:
+        body += "No new boards were found in this run.\n\n"
+
+    body += "This is an automated report."
+
+    msg = EmailMessage()
+    msg['Subject'] = subject
+    msg['From'] = sender
+    msg['To'] = receiver
+    msg.set_content(body)
+
+    try:
+        print("  [*] Connecting to SMTP server...")
+        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
+            smtp.login(sender, password)
+            smtp.send_message(msg)
+        print("  [+] Email sent successfully!")
+    except Exception as e:
+        print(f"  [!] SMTP Error: {e}")
 
 
 def discover_boards():
@@ -106,16 +166,25 @@ def discover_boards():
 
     new_staged = 0
     seen_this_run = set()
+    error_log = []
 
     for query in SEARCH_QUERIES:
         print(f"\n  Searching: {query}")
 
         all_urls = []
+        
         print("    [1/2] DuckDuckGo...")
-        all_urls.extend(search_duckduckgo(query))
+        ddg_results = search_duckduckgo(query)
+        if not ddg_results:
+            error_log.append(f"DuckDuckGo returned 0 results for '{query}'")
+        all_urls.extend(ddg_results)
         time.sleep(2)
+        
         print("    [2/2] Bing...")
-        all_urls.extend(search_bing(query))
+        bing_results = search_bing(query)
+        if not bing_results:
+            error_log.append(f"Bing returned 0 results for '{query}'")
+        all_urls.extend(bing_results)
         time.sleep(2)
 
         for url in all_urls:
@@ -142,10 +211,18 @@ def discover_boards():
             print(f"      [+] Staged: {name} ({domain})")
             new_staged += 1
 
+    # Save the updated pending list
     save_json('pending_boards.json', pending)
     print(f"\n  [*] Discovery complete. {new_staged} new boards staged.")
+    
     if new_staged > 0:
         print("  [*] Review seed/pending_boards.json and promote approved boards to jobboards.json")
+
+    # Convert error log list to string for email
+    error_str = "\n".join(error_log) if error_log else None
+
+    # Send Email Report
+    send_summary_email(new_staged, len(pending), error_str)
 
 
 if __name__ == "__main__":
