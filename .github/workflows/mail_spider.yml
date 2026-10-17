@@ -2,7 +2,7 @@ name: Crawl and Apply
 
 on:
   schedule:
-    - cron: '30 3 * * *'   # daily (03:30 UTC)
+    - cron: '0 */4 * * *'   # every 4 hours (00:00, 04:00, 08:00, etc. UTC)
   workflow_dispatch:        # manual trigger
 
 jobs:

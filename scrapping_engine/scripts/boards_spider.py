@@ -71,28 +71,6 @@ def search_bing(query):
     return results
 
 
-def search_google_api(query):
-    results = []
-    api_key = os.environ.get('GOOGLE_API_KEY')
-    cse_id = os.environ.get('GOOGLE_CSE_ID')
-    if not api_key or not cse_id:
-        return results
-
-    try:
-        url = "https://www.googleapis.com/customsearch/v1"
-        params = {"key": api_key, "cx": cse_id, "q": query, "num": 10}
-        response = requests.get(url, params=params, timeout=15)
-        data = response.json()
-        if 'items' in data:
-            for item in data['items']:
-                results.append(item['link'])
-        elif 'error' in data:
-            print(f"      [!] Google API: {data['error'].get('message')}")
-    except Exception as e:
-        print(f"      [!] Google API error: {e}")
-    return results
-
-
 def is_valid_job_board(url):
     try:
         domain = urlparse(url).netloc.lower().replace('www.', '')
@@ -133,15 +111,12 @@ def discover_boards():
         print(f"\n  Searching: {query}")
 
         all_urls = []
-        print("    [1/3] DuckDuckGo...")
+        print("    [1/2] DuckDuckGo...")
         all_urls.extend(search_duckduckgo(query))
         time.sleep(2)
-        print("    [2/3] Bing...")
+        print("    [2/2] Bing...")
         all_urls.extend(search_bing(query))
         time.sleep(2)
-        print("    [3/3] Google (API)...")
-        all_urls.extend(search_google_api(query))
-        time.sleep(1)
 
         for url in all_urls:
             if new_staged >= 20:

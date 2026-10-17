@@ -2,8 +2,8 @@ name: Job Boards Spider
 
 on:
   schedule:
-    - cron: '0 3 * * 1'    # weekly (Mon 03:00 UTC)
-  workflow_dispatch:        # manual trigger
+    - cron: '0 12 * * *'    # daily (12:00 UTC / 14:00 Harare time)
+  workflow_dispatch:         # manual trigger
 
 jobs:
   job_boards_spider:
@@ -24,3 +24,4 @@ jobs:
           EMAIL_USER: ${{ secrets.EMAIL_USER }}
           EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
           RECEIVER_EMAIL: ${{ secrets.RECEIVER_EMAIL }}
+          DJANGO_ENV: production
