@@ -8,6 +8,7 @@ import smtplib
 from datetime import datetime
 from email.message import EmailMessage
 from bs4 import BeautifulSoup
+from urllib.parse import urljoin, urlparse
 
 # Project root is three levels up: scripts/ -> scrapping_engine/ -> project root
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -19,7 +20,13 @@ from scrapping_engine.models import JobBoard, JobLead, CandidateCV
 from utilities.seed_utils import get_blacklist
 
 EMAIL_REGEX = r'[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+'
-JOB_LINK_KEYWORDS = ["/job", "/post", "/detail", "/vacancy", "/careers", "/opening"]
+
+# Expanded keywords to catch more job links
+JOB_LINK_KEYWORDS = [
+    "/job", "/post", "/detail", "/vacancy", "/careers", "/opening", 
+    "/position", "/listing", "?job=", "?vacancy=", "?career="
+]
+
 MAX_LINKS_PER_ROLE = 4
 MAX_EMAILS_PER_JOB = 4
 
@@ -46,12 +53,6 @@ def extract_emails_from_html(html_text, blacklist):
 def extract_job_title(soup):
     title_tag = soup.find('h1') or soup.find('h2')
     return title_tag.get_text(strip=True)[:255] if title_tag else "N/A"
-
-
-def normalize_url(base_url, href):
-    if href.startswith('http'):
-        return href
-    return f"{base_url.rstrip('/')}/{href.lstrip('/')}"
 
 
 def process_job_url(url, board, role, blacklist):
@@ -95,20 +96,33 @@ def find_job_links(board_url):
     try:
         response = requests.get(board_url, headers=HEADERS, timeout=15)
         soup = BeautifulSoup(response.text, 'html.parser')
+        
         for anchor in soup.find_all('a', href=True):
-            full_url = normalize_url(board_url, anchor['href'])
+            href = anchor['href'].strip()
+            
+            # Skip junk links
+            if not href or href.startswith(('mailto:', 'tel:', 'javascript:', '#')):
+                continue
+                
+            # Properly join relative URLs with the base URL
+            full_url = urljoin(board_url, href)
+            
+            # Check if the URL contains any job keyword
             if any(kw in full_url.lower() for kw in JOB_LINK_KEYWORDS):
                 job_links.append(full_url)
+                
     except Exception as e:
         print(f"      [!] Could not fetch board: {e}")
         return []
 
+    # Deduplicate
     seen = set()
     unique = []
     for link in job_links:
         if link not in seen:
             seen.add(link)
             unique.append(link)
+            
     return unique
 
 

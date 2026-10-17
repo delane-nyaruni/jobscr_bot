@@ -42,7 +42,7 @@ NON_JOB_BOARD_DOMAINS = [
 ]
 
 JOB_KEYWORDS = [
-    "job", "career", "vacanc", "recruit", "employ",
+    "job", "career", "vacancy", "recruit", "employ",
     "hire", "hiring", "staffing", "talent",
 ]
 
@@ -215,8 +215,8 @@ def discover_boards():
                 JobBoard.objects.create(
                     name=name,
                     url=url,
-                    country="Zimbabwe",
-                    is_active=False  # Requires manual activation in admin
+                    country=["Zimbabwe","United States"," United kingdom", "Ukraine", "South Africa"],
+                    is_active=True  # Requires manual activation in admin
                 )
                 print(f"      [+] Added to DB: {name} ({domain})")
                 new_added += 1
