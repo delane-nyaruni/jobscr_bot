@@ -7,18 +7,27 @@ on:
 
 jobs:
   crawl_and_apply:
+    environment: USER_CREDENTIALS
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: pip install -r requirements.txt
-      - run: python manage.py migrate --verbosity 3
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Migrate Database
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-      - run: python scrapping_engine/scripts/email_spider.py
+        run: python manage.py migrate --verbosity 3
+
+      - name: Run Email Spider
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           MYSQL_DB_PASSWORD: ${{ secrets.MYSQL_DB_PASSWORD }}
@@ -26,3 +35,4 @@ jobs:
           EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
           EMAIL_RECEIVER: ${{ secrets.EMAIL_RECEIVER }}
           DJANGO_ENV: production
+        run: python scrapping_engine/scripts/email_spider.py

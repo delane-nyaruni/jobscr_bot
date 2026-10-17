@@ -15,7 +15,6 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'dfms_backend.settings')
 django.setup()
 
 from scrapping_engine.models import JobBoard
-from utilities.seed_utils import load_json, save_json
 
 SEARCH_QUERIES = [
     "zimbabwe job vacancies",
@@ -106,42 +105,43 @@ def _get_env(*names):
     return None
 
 
-def send_summary_email(new_staged, total_pending, error_log):
+def send_summary_email(new_added, total_boards, error_log):
     """Sends a summary email after every run."""
     print("\n--- GENERATING EMAIL REPORT ---")
 
-    sender = os.getenv('EMAIL_SENDER')
-    password = os.getenv('EMAIL_PASSWORD')
-    receiver = os.getenv('EMAIL_RECEIVER')
+    # Uses the exact environment variables you configured in GitHub
+    sender = _get_env('EMAIL_SENDER', 'EMAIL_USER')
+    password = os.environ.get('EMAIL_PASSWORD')
+    receiver = _get_env('EMAIL_RECEIVER', 'RECEIVER_EMAIL')
 
     missing = []
     if not sender:
-        missing.append("EMAIL_USER or EMAIL_SENDER")
+        missing.append("EMAIL_SENDER or EMAIL_USER")
     if not password:
         missing.append("EMAIL_PASSWORD")
     if not receiver:
-        missing.append("RECEIVER_EMAIL or EMAIL_RECEIVER")
+        missing.append("EMAIL_RECEIVER or RECEIVER_EMAIL")
 
     if missing:
         print(f"  [!] Missing secrets: {', '.join(missing)}. Skipping email.")
-        print("      Fix: Add these under GitHub Repo -> Settings -> Secrets and variables -> Actions.")
         return
 
-    subject = f"Board Discovery Report: {new_staged} New - {datetime.now().strftime('%Y-%m-%d')}"
+    subject = f"Board Discovery Report: {new_added} Added to DB - {datetime.now().strftime('%Y-%m-%d')}"
 
     body = (
         "Job Board Discovery Run Summary\n"
         "---------------------------------------------\n"
         f"Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
-        f"New boards staged: {new_staged}\n"
-        f"Total boards in pending list: {total_pending}\n\n"
+        f"New boards added to database: {new_added}\n"
+        f"Total boards in database: {total_boards}\n\n"
     )
 
     if error_log:
         body += f"Errors encountered during run:\n{error_log}\n\n"
 
-    if new_staged > 0:
-        body += "Review seed/pending_boards.json and promote approved boards to jobboards.json.\n\n"
+    if new_added > 0:
+        body += "NOTE: New boards are added as INACTIVE by default.\n"
+        body += "Log into your Django Admin panel to review them and check 'Is active' to start scraping them.\n\n"
     else:
         body += "No new boards were found in this run.\n\n"
 
@@ -166,6 +166,7 @@ def send_summary_email(new_staged, total_pending, error_log):
 def discover_boards():
     print("\n--- STARTING JOB BOARD DISCOVERY ---")
 
+    # Load existing domains directly from MySQL Database
     known_domains = set()
     for url in JobBoard.objects.values_list('url', flat=True):
         try:
@@ -173,22 +174,15 @@ def discover_boards():
         except Exception:
             pass
 
-    pending = load_json('pending_boards.json')
-    for board in pending:
-        try:
-            known_domains.add(urlparse(board['url']).netloc.lower().replace('www.', ''))
-        except Exception:
-            pass
+    print(f"  [*] Already tracking {len(known_domains)} domains in database")
 
-    print(f"  [*] Already tracking {len(known_domains)} domains")
-
-    new_staged = 0
+    new_added = 0
     max_stage = 15
     seen_this_run = set()
     error_log = []
 
     for query in SEARCH_QUERIES:
-        if new_staged >= max_stage:
+        if new_added >= max_stage:
             break
 
         print(f"\n  Searching: {query}")
@@ -202,7 +196,7 @@ def discover_boards():
             continue
 
         for url in urls:
-            if new_staged >= max_stage:
+            if new_added >= max_stage:
                 break
 
             is_valid, name = is_valid_job_board(url)
@@ -216,26 +210,31 @@ def discover_boards():
             seen_this_run.add(domain)
             known_domains.add(domain)
 
-            pending.append({
-                "name": name,
-                "url": url,
-                "country": "Zimbabwe",
-                "source_query": query,
-            })
-            print(f"      [+] Staged: {name} ({domain})")
-            new_staged += 1
+            # Save directly to MySQL Database
+            try:
+                JobBoard.objects.create(
+                    name=name,
+                    url=url,
+                    country="Zimbabwe",
+                    is_active=False  # Requires manual activation in admin
+                )
+                print(f"      [+] Added to DB: {name} ({domain})")
+                new_added += 1
+            except Exception as e:
+                print(f"      [!] DB Error saving {name}: {e}")
 
-    save_json('pending_boards.json', pending)
-    print(f"\n  [*] Discovery complete. {new_staged} new boards staged.")
-
-    if new_staged > 0:
-        print("  [*] Review seed/pending_boards.json and promote approved boards to jobboards.json")
+    print(f"\n  [*] Discovery complete. {new_added} new boards added to database.")
 
     error_str = "\n".join(error_log) if error_log else None
-    send_summary_email(new_staged, len(pending), error_str)
+    
+    # Get total board count from DB for the email
+    total_boards = JobBoard.objects.count()
+    
+    # Send Email Report
+    send_summary_email(new_added, total_boards, error_str)
 
 
 if __name__ == "__main__":
-    print("Initializing Multi-Engine Board Discovery...")
+    print("Initializing Board Discovery Engine...")
     discover_boards()
     print("\nDiscovery run complete.")
