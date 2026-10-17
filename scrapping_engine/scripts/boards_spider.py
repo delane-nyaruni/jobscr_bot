@@ -18,11 +18,12 @@ django.setup()
 from scrapping_engine.models import JobBoard
 from utilities.seed_utils import load_json, save_json
 
+# More specific queries targeting job boards, not generic pages
 SEARCH_QUERIES = [
-    "zimbabwe job vacancies",
-    "zimbabwe careers site:.co.zw",
-    "harare jobs recruitment",
-    "bulawayo vacancies",
+    'zimbabwe "job vacancies"',
+    'zimbabwe careers jobs board',
+    'harare job board recruitment',
+    'bulawayo job vacancies careers',
 ]
 
 HEADERS = {
@@ -33,42 +34,61 @@ HEADERS = {
     )
 }
 
+# Domains to always reject
 NON_JOB_BOARD_DOMAINS = [
     "facebook.com", "twitter.com", "linkedin.com", "youtube.com",
     "instagram.com", "wikipedia.org", "reddit.com", "tiktok.com",
-    "google.com", "bing.com", "duckduckgo.com", "pinterest.com", "yahoo.com"
+    "google.com", "bing.com", "duckduckgo.com", "pinterest.com", "yahoo.com",
+    "britannica.com", "tripadvisor.com", "worldatlas.com", "mapquest.com",
+    "visitseattle.org", "seattle.gov", "pindula.co.zw", "newzimbabwe.com",
+]
+
+# Keywords that must appear in the URL for it to be considered a job board
+JOB_KEYWORDS = [
+    "job", "career", "vacancy", "recruit", "employ",
+    "hire", "hiring", "staffing", "talent", "work",
 ]
 
 
 def search_bing_rss(query):
-    """Uses Bing's RSS feed and Python's built-in XML parser."""
+    """Uses Bing's RSS feed with Zimbabwe market, parsed with built-in XML."""
     results = []
     try:
-        url = f"https://www.bing.com/search?q={requests.utils.quote(query)}&format=rss"
+        # mkt=en-ZW forces Bing to return Zimbabwe-focused results
+        url = f"https://www.bing.com/search?q={requests.utils.quote(query)}&format=rss&mkt=en-ZW"
         response = requests.get(url, headers=HEADERS, timeout=15)
-        
+
         # Parse using Python's built-in xml library
         root = ET.fromstring(response.content)
-        
+
         # Find all <item> tags and extract the <link>
         for item in root.findall('.//item'):
             link = item.find('link')
             if link is not None and link.text and link.text.startswith('http'):
                 results.append(link.text)
-                
+
     except Exception as e:
         print(f"      [!] Bing RSS error: {e}")
     return results
 
 
 def is_valid_job_board(url):
+    """Strict filter: domain must look like a job board."""
     try:
         domain = urlparse(url).netloc.lower().replace('www.', '')
+
+        # Reject known non-job-board domains
         if any(skip in domain for skip in NON_JOB_BOARD_DOMAINS):
             return False, None
+
         if '.' not in domain:
             return False, None
-        
+
+        # STRICT FILTER: The domain or path must contain a job keyword
+        full_url_lower = url.lower()
+        if not any(keyword in full_url_lower for keyword in JOB_KEYWORDS):
+            return False, None
+
         # Clean up the name (e.g. "zimbajob.co.zw" -> "Zimbajob")
         name = domain.split('.')[0].capitalize()
         return True, name
@@ -79,19 +99,27 @@ def is_valid_job_board(url):
 def send_summary_email(new_staged, total_pending, error_log):
     """Sends a summary email after every run, even if 0 boards were found."""
     print("\n--- GENERATING EMAIL REPORT ---")
-    
-    # Matches the secrets we set up: EMAIL_SENDER, EMAIL_PASSWORD, EMAIL_RECEIVER
-    sender = os.environ.get('EMAIL_SENDER')
-    password = os.environ.get('EMAIL_PASSWORD')
-    receiver = os.environ.get('EMAIL_RECEIVER')
 
-    if not sender or not password or not receiver:
-        print("  [!] Missing EMAIL_SENDER, EMAIL_PASSWORD, or EMAIL_RECEIVER. Skipping email.")
-        print("      Make sure these are added to your GitHub Repository Secrets.")
+    sender = os.getenv('EMAIL_SENDER')
+    password = os.getenv('EMAIL_PASSWORD')
+    receiver = os.getenv('EMAIL_RECEIVER')
+
+    # Explicitly print what is missing so you can debug GitHub Secrets
+    missing = []
+    if not sender:
+        missing.append("EMAIL_SENDER")
+    if not password:
+        missing.append("EMAIL_PASSWORD")
+    if not receiver:
+        missing.append("EMAIL_RECEIVER")
+
+    if missing:
+        print(f"  [!] Missing secrets: {', '.join(missing)}. Skipping email.")
+        print("      Add them at: GitHub Repo -> Settings -> Secrets and variables -> Actions.")
         return
 
     subject = f"Board Discovery Report: {new_staged} New - {datetime.now().strftime('%Y-%m-%d')}"
-    
+
     body = (
         "Job Board Discovery Run Summary\n"
         "---------------------------------------------\n"
@@ -152,17 +180,17 @@ def discover_boards():
 
     for query in SEARCH_QUERIES:
         print(f"\n  Searching: {query}")
-        
+
         print("    [*] Fetching Bing RSS results...")
         all_urls = search_bing_rss(query)
-        
+
         if not all_urls:
             error_log.append(f"Bing returned 0 results for '{query}'")
             print("      [-] 0 results found.")
         else:
             print(f"      [+] Found {len(all_urls)} raw links.")
 
-        time.sleep(2) # Be polite to Bing
+        time.sleep(2)  # Be polite to Bing
 
         for url in all_urls:
             if new_staged >= 20:
@@ -191,11 +219,10 @@ def discover_boards():
     # Save the updated pending list
     save_json('pending_boards.json', pending)
     print(f"\n  [*] Discovery complete. {new_staged} new boards staged.")
-    
+
     if new_staged > 0:
         print("  [*] Review seed/pending_boards.json and promote approved boards to jobboards.json")
 
-    # Convert error log list to string for email
     error_str = "\n".join(error_log) if error_log else None
 
     # Send Email Report
