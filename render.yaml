@@ -14,8 +14,8 @@ services:
         sync: false # Set this manually in Render Dashboard to your Aiven URI
       # These variables are used by your create_admin.py script
       - key: DJANGO_SUPERUSER_USERNAME
-        value: admin
+        value: delane
       - key: DJANGO_SUPERUSER_PASSWORD
-        value: YourSecretPassword123 
+        value: delanesudo123 
       - key: DJANGO_SUPERUSER_EMAIL
-        value: admin@example.com
+        value: delane@sudo.com
