@@ -18,7 +18,7 @@ jobs:
       - run: python manage.py migrate --verbosity 3
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-      - run: python cleaning_engine/scripts/clean_mailbox.py
+      - run: python cleaning_engine/scripts/boards_cleaner.py
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           MYSQL_DB_PASSWORD: ${{ secrets.MYSQL_DB_PASSWORD }}
