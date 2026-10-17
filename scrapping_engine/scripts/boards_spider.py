@@ -80,13 +80,13 @@ def send_summary_email(new_staged, total_pending, error_log):
     """Sends a summary email after every run, even if 0 boards were found."""
     print("\n--- GENERATING EMAIL REPORT ---")
     
-    # Matches the secrets we set up: EMAIL_USER, EMAIL_PASSWORD, RECEIVER_EMAIL
-    sender = os.environ.get('EMAIL_USER')
+    # Matches the secrets we set up: EMAIL_SENDER, EMAIL_PASSWORD, EMAIL_RECEIVER
+    sender = os.environ.get('EMAIL_SENDER')
     password = os.environ.get('EMAIL_PASSWORD')
-    receiver = os.environ.get('RECEIVER_EMAIL')
+    receiver = os.environ.get('EMAIL_RECEIVER')
 
     if not sender or not password or not receiver:
-        print("  [!] Missing EMAIL_USER, EMAIL_PASSWORD, or RECEIVER_EMAIL. Skipping email.")
+        print("  [!] Missing EMAIL_SENDER, EMAIL_PASSWORD, or EMAIL_RECEIVER. Skipping email.")
         print("      Make sure these are added to your GitHub Repository Secrets.")
         return
 
