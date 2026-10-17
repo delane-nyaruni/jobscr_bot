@@ -237,4 +237,4 @@ def discover_boards():
 if __name__ == "__main__":
     print("Initializing Board Discovery Engine...")
     discover_boards()
-    print("\n Boards Discovery run complete.")
+    print("\n Boards Discovery run completed.")
