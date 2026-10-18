@@ -14,6 +14,7 @@ sys.path.append(BASE_DIR)
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'dfms_backend.settings')
 django.setup()
 
+from django.db import connection
 from scrapping_engine.models import JobBoard
 
 SEARCH_QUERIES = [
@@ -24,20 +25,7 @@ SEARCH_QUERIES = [
 ]
 
 NON_JOB_BOARD_DOMAINS = [
-    # Social media
-    # "facebook.com", "twitter.com", "linkedin.com", "youtube.com",
-    # "instagram.com", "wikipedia.org", "reddit.com", "tiktok.com",
-    # "pinterest.com", "yahoo.com",
-    # Search engines
-    # "google.com", "bing.com", "duckduckgo.com",
-    # Global aggregators (anti-bot blocks make them useless)
-    # "indeed.com", "ziprecruiter.com", "glassdoor.com", "monster.com",
-    # Government / embassy / council
     "usembassy.gov", "gov.zw", "citybyo.co.zw", "hararecity.co.zw",
-    # Travel / tourism noise
-    # "britannica.com", "tripadvisor.com", "worldatlas.com", "mapquest.com",
-    # "visitseattle.org", "seattle.gov", "pindula.co.zw", "newzimbabwe.com",
-    # "zimfieldguide.com", "greatzimbabweguide.com", "zimbabwetourism.net",
     "theworldfactbook.org", "countryreports.org", "gisgeography.com",
 ]
 
@@ -57,11 +45,7 @@ def search_via_tavily(query):
                 "Content-Type": "application/json",
                 "X-Tavily-Access-Mode": "keyless",
             },
-            json={
-                "query": query,
-                "max_results": 10,
-                "search_depth": "basic",
-            },
+            json={"query": query, "max_results": 10, "search_depth": "basic"},
             timeout=20,
         )
         data = response.json()
@@ -78,18 +62,12 @@ def is_valid_job_board(url):
     """Strict filter: domain must look like a job board, not noise."""
     try:
         domain = urlparse(url).netloc.lower().replace('www.', '')
-
-        # Reject blacklisted domains (partial match catches subdomains)
         if any(skip in domain for skip in NON_JOB_BOARD_DOMAINS):
             return False, None
-
         if '.' not in domain:
             return False, None
-
-        # Require a job keyword in the URL
         if not any(kw in url.lower() for kw in JOB_KEYWORDS):
             return False, None
-
         name = domain.split('.')[0].capitalize()
         return True, name
     except Exception:
@@ -97,7 +75,6 @@ def is_valid_job_board(url):
 
 
 def _get_env(*names):
-    """Returns the first non-empty environment variable from a list."""
     for name in names:
         value = os.environ.get(name)
         if value:
@@ -105,11 +82,16 @@ def _get_env(*names):
     return None
 
 
-def send_summary_email(new_added, total_boards, error_log):
-    """Sends a summary email after every run."""
+def _db_name():
+    """Returns 'mysql', 'sqlite', etc."""
+    engine = connection.settings_dict.get('ENGINE', 'unknown')
+    return engine.split('.')[-1] if '.' in engine else engine
+
+
+def send_summary_email(status, stats, board_details, start_time):
+    """Sends the full stats-style summary email."""
     print("\n--- GENERATING EMAIL REPORT ---")
 
-    # Uses the exact environment variables you configured in GitHub
     sender = _get_env('EMAIL_SENDER', 'EMAIL_USER')
     password = os.environ.get('EMAIL_PASSWORD')
     receiver = _get_env('EMAIL_RECEIVER', 'RECEIVER_EMAIL')
@@ -126,26 +108,71 @@ def send_summary_email(new_added, total_boards, error_log):
         print(f"  [!] Missing secrets: {', '.join(missing)}. Skipping email.")
         return
 
-    subject = f"Board Discovery Report: {new_added} Added to DB - {datetime.now().strftime('%Y-%m-%d')}"
+    end_time = datetime.now()
+    duration = (end_time - start_time).total_seconds()
 
-    body = (
-        "Job Board Discovery Run Summary\n"
-        "---------------------------------------------\n"
-        f"Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
-        f"New boards added to database: {new_added}\n"
-        f"Total boards in database: {total_boards}\n\n"
+    # Database snapshot
+    total_boards = JobBoard.objects.count()
+    active_boards = JobBoard.objects.filter(is_active=True).count()
+    inactive_boards = total_boards - active_boards
+
+    subject = (
+        f"Board Discovery [{status}]: {stats['new_added']} Added - "
+        f"{end_time.strftime('%Y-%m-%d')}"
     )
 
-    if error_log:
-        body += f"Errors encountered during run:\n{error_log}\n\n"
+    body = (
+        "Job Board Discovery Run Report\n"
+        "=================================================================\n"
+        f"Status:              {status}\n"
+        f"Started:             {start_time.strftime('%Y-%m-%d %H:%M:%S')}\n"
+        f"Finished:            {end_time.strftime('%Y-%m-%d %H:%M:%S')}\n"
+        f"Duration:            {duration:.1f} seconds\n"
+        "\n"
+        "System Report\n"
+        "---------------------------------------------\n"
+        f"Django version:          {django.get_version()}\n"
+        f"Python version:          {sys.version.split()[0]}\n"
+        f"Database backend:        {_db_name()}\n"
+        "\n"
+        "Database Snapshot\n"
+        "---------------------------------------------\n"
+        f"Total boards in DB:      {total_boards}\n"
+        f"Active boards:           {active_boards}\n"
+        f"Inactive boards:         {inactive_boards}\n"
+        "\n"
+        "Discovery Statistics\n"
+        "---------------------------------------------\n"
+        f"Search queries executed: {stats['queries_run']}/{len(SEARCH_QUERIES)}\n"
+        f"Raw URLs returned:       {stats['raw_urls']}\n"
+        f"URLs filtered out:       {stats['filtered_out']}\n"
+        f"Duplicates skipped:      {stats['duplicates']}\n"
+        f"NEW BOARDS ADDED:        {stats['new_added']}\n"
+        f"Errors:                  {len(stats['errors'])}\n"
+        "\n"
+        "New Boards Added This Run\n"
+        "---------------------------------------------\n"
+    )
 
-    if new_added > 0:
-        body += "NOTE: New boards are added as INACTIVE by default.\n"
-        body += "Log into your Django Admin panel to review them and check 'Is active' to start scraping them.\n\n"
+    if board_details:
+        for b in board_details:
+            body += f"[+] {b['name']:<20} {b['domain']}\n"
     else:
-        body += "No new boards were found in this run.\n\n"
+        body += "(no new boards this run)\n"
 
-    body += "This is an automated report."
+    if stats['errors']:
+        body += "\nErrors Encountered\n"
+        body += "---------------------------------------------\n"
+        for err in stats['errors']:
+            body += f"- {err}\n"
+
+    if stats['new_added'] > 0:
+        body += (
+            "\nNote: New boards are added as ACTIVE by default.\n"
+            "Log into Django Admin to review and deactivate any you don't want scraped.\n"
+        )
+
+    body += "\nThis is an automated report from Jobscr."
 
     msg = EmailMessage()
     msg['Subject'] = subject
@@ -154,7 +181,6 @@ def send_summary_email(new_added, total_boards, error_log):
     msg.set_content(body)
 
     try:
-        print("  [*] Connecting to SMTP server...")
         with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
             smtp.login(sender, password)
             smtp.send_message(msg)
@@ -164,77 +190,87 @@ def send_summary_email(new_added, total_boards, error_log):
 
 
 def discover_boards():
+    start_time = datetime.now()
     print("\n--- STARTING JOB BOARD DISCOVERY ---")
+    print(f"  [*] Run started at {start_time.strftime('%Y-%m-%d %H:%M:%S')}")
 
-    # Load existing domains directly from MySQL Database
     known_domains = set()
     for url in JobBoard.objects.values_list('url', flat=True):
         try:
             known_domains.add(urlparse(url).netloc.lower().replace('www.', ''))
         except Exception:
             pass
-
     print(f"  [*] Already tracking {len(known_domains)} domains in database")
 
-    new_added = 0
+    stats = {
+        "queries_run": 0,
+        "raw_urls": 0,
+        "filtered_out": 0,
+        "duplicates": 0,
+        "new_added": 0,
+        "errors": [],
+    }
+    board_details = []
     max_stage = 15
     seen_this_run = set()
-    error_log = []
 
     for query in SEARCH_QUERIES:
-        if new_added >= max_stage:
+        if stats['new_added'] >= max_stage:
             break
 
         print(f"\n  Searching: {query}")
         print("    [*] Searching via Tavily API...")
         urls = search_via_tavily(query)
+        stats['queries_run'] += 1
+        stats['raw_urls'] += len(urls)
         print(f"          -> {len(urls)} raw links")
         time.sleep(2)
 
         if not urls:
-            error_log.append(f"Tavily returned 0 results for '{query}'")
+            stats['errors'].append(f"Tavily returned 0 results for '{query}'")
             continue
 
         for url in urls:
-            if new_added >= max_stage:
+            if stats['new_added'] >= max_stage:
                 break
 
             is_valid, name = is_valid_job_board(url)
             if not is_valid:
+                stats['filtered_out'] += 1
                 continue
 
             domain = urlparse(url).netloc.lower().replace('www.', '')
             if domain in seen_this_run or domain in known_domains:
+                stats['duplicates'] += 1
                 continue
 
             seen_this_run.add(domain)
             known_domains.add(domain)
 
-            # Save directly to MySQL Database
             try:
                 JobBoard.objects.create(
                     name=name,
                     url=url,
-                    country=["Zimbabwe","United States"," United kingdom", "Ukraine", "South Africa"],
-                    is_active=True  # Requires manual activation in admin
+                    country="Zimbabwe",
+                    is_active=True,
                 )
                 print(f"      [+] Added to DB: {name} ({domain})")
-                new_added += 1
+                stats['new_added'] += 1
+                board_details.append({"name": name, "domain": domain})
             except Exception as e:
-                print(f"      [!] DB Error saving {name}: {e}")
+                msg = f"DB error saving {name}: {e}"
+                print(f"      [!] {msg}")
+                stats['errors'].append(msg)
 
-    print(f"\n  [*] Discovery complete. {new_added} new boards added to database.")
+    print(f"\n  [*] Discovery complete. {stats['new_added']} new boards added.")
 
-    error_str = "\n".join(error_log) if error_log else None
-    
-    # Get total board count from DB for the email
-    total_boards = JobBoard.objects.count()
-    
-    # Send Email Report
-    send_summary_email(new_added, total_boards, error_str)
+    status = "SUCCESS" if not stats['errors'] else (
+        "PARTIAL" if stats['new_added'] > 0 else "FAILED"
+    )
+    send_summary_email(status, stats, board_details, start_time)
 
 
 if __name__ == "__main__":
     print("Initializing Board Discovery Engine...")
     discover_boards()
-    print("\n Boards Discovery run completed.")
+    print("\nBoard Discovery run complete.")

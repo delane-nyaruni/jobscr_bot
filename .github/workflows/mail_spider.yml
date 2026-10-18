@@ -1,4 +1,4 @@
-name: Crawl and Apply
+name: Email Crawler
 
 on:
   schedule:

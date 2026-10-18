@@ -1,4 +1,4 @@
-name: Apply to Jobs
+name: Applying Robot
 
 on:
   schedule:
