@@ -1,14 +1,15 @@
-name: Clean Sent Mailbox
+name: Clean Mailbox
 
 on:
   schedule:
-    - cron: '0 5 1 * *'    # monthly (1st, 05:00 UTC)
-  workflow_dispatch:        # manual trigger
+    - cron: '0 5 1 * *'    # 1st of every month, 05:00 UTC
+  workflow_dispatch:
 
 jobs:
-  clean_sent_mailbox:
+  clean_mailbox:
+    environment: USER_CREDENTIALS
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -18,12 +19,11 @@ jobs:
       - run: python manage.py migrate --verbosity 3
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-      - run: python cleaning_engine/scripts/clean_mailbox.py
-
+      - name: Run Mailbox Cleanup
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           MYSQL_DB_PASSWORD: ${{ secrets.MYSQL_DB_PASSWORD }}
           EMAIL_SENDER: ${{ secrets.EMAIL_SENDER }}
           EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
           EMAIL_RECEIVER: ${{ secrets.EMAIL_RECEIVER }}
-          DJANGO_ENV: production
+        run: python cleaning_engine/scripts/clean_mailbox.py

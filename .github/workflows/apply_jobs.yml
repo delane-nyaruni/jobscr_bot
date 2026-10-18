@@ -1,0 +1,33 @@
+name: Apply to Jobs
+
+on:
+  schedule:
+    # 11 runs/day at 2h15m intervals, resets at midnight UTC
+    - cron: '0 0,9,18 * * *'      # 00:00, 09:00, 18:00
+    - cron: '15 2,11,20 * * *'    # 02:15, 11:15, 20:15
+    - cron: '30 4,13,22 * * *'    # 04:30, 13:30, 22:30
+    - cron: '45 6,15 * * *'       # 06:45, 15:45
+  workflow_dispatch:
+
+jobs:
+  apply_jobs:
+    environment: USER_CREDENTIALS
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements.txt
+      - run: python manage.py migrate --verbosity 3
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      - name: Run Job Application
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          MYSQL_DB_PASSWORD: ${{ secrets.MYSQL_DB_PASSWORD }}
+          EMAIL_SENDER: ${{ secrets.EMAIL_SENDER }}
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+          EMAIL_RECEIVER: ${{ secrets.EMAIL_RECEIVER }}
+        run: python mailing_engine/scripts/apply_jobs.py --live
