@@ -6,7 +6,7 @@ on:
   workflow_dispatch:        # manual trigger
 
 jobs:
-  crawl_and_apply:
+  mail_spider:
     environment: USER_CREDENTIALS
     runs-on: ubuntu-latest
     timeout-minutes: 15
