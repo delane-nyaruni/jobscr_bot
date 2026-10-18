@@ -15,7 +15,6 @@ sys.path.append(BASE_DIR)
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'dfms_backend.settings')
 django.setup()
 
-from django.db import connection
 from scrapping_engine.models import JobBoard, JobLead, CandidateCV
 from utilities.seed_utils import get_blacklist
 
@@ -209,11 +208,6 @@ def _get_env(*names):
     return None
 
 
-def _db_name():
-    engine = connection.settings_dict.get('ENGINE', 'unknown')
-    return engine.split('.')[-1] if '.' in engine else engine
-
-
 def send_summary_email(status, stats, roles, board_details, start_time):
     print("\n--- GENERATING EMAIL REPORT ---")
 
@@ -257,12 +251,6 @@ def send_summary_email(status, stats, roles, board_details, start_time):
         f"Started:             {start_time.strftime('%Y-%m-%d %H:%M:%S')}\n"
         f"Finished:            {end_time.strftime('%Y-%m-%d %H:%M:%S')}\n"
         f"Duration:            {duration:.1f} seconds\n"
-        "\n"
-        "System Report\n"
-        "---------------------------------------------\n"
-        f"Django version:          {django.get_version()}\n"
-        f"Python version:          {sys.version.split()[0]}\n"
-        f"Database backend:        {_db_name()}\n"
         "\n"
         "Database Snapshot\n"
         "---------------------------------------------\n"
@@ -315,7 +303,7 @@ def send_summary_email(status, stats, roles, board_details, start_time):
             "The mailing_engine will pick them up during its next scheduled run.\n"
         )
 
-    body += "\nThis is an automated report from Jobscr."
+    body += "\nThis is an automated report from Jobscr Behemoth Email Crawler."
 
     msg = EmailMessage()
     msg['Subject'] = subject

@@ -14,7 +14,6 @@ sys.path.append(BASE_DIR)
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'dfms_backend.settings')
 django.setup()
 
-from django.db import connection
 from scrapping_engine.models import JobBoard
 
 SEARCH_QUERIES = [
@@ -82,12 +81,6 @@ def _get_env(*names):
     return None
 
 
-def _db_name():
-    """Returns 'mysql', 'sqlite', etc."""
-    engine = connection.settings_dict.get('ENGINE', 'unknown')
-    return engine.split('.')[-1] if '.' in engine else engine
-
-
 def send_summary_email(status, stats, board_details, start_time):
     """Sends the full stats-style summary email."""
     print("\n--- GENERATING EMAIL REPORT ---")
@@ -129,12 +122,6 @@ def send_summary_email(status, stats, board_details, start_time):
         f"Finished:            {end_time.strftime('%Y-%m-%d %H:%M:%S')}\n"
         f"Duration:            {duration:.1f} seconds\n"
         "\n"
-        "System Report\n"
-        "---------------------------------------------\n"
-        f"Django version:          {django.get_version()}\n"
-        f"Python version:          {sys.version.split()[0]}\n"
-        f"Database backend:        {_db_name()}\n"
-        "\n"
         "Database Snapshot\n"
         "---------------------------------------------\n"
         f"Total boards in DB:      {total_boards}\n"
@@ -172,7 +159,7 @@ def send_summary_email(status, stats, board_details, start_time):
             "Log into Django Admin to review and deactivate any you don't want scraped.\n"
         )
 
-    body += "\nThis is an automated report from Jobscr."
+    body += "\nThis is an automated report from Jobscr Behemoth Boards Crawler."
 
     msg = EmailMessage()
     msg['Subject'] = subject

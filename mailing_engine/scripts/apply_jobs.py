@@ -186,7 +186,7 @@ def send_summary_email(status, stats, details, start_time):
             "Failed leads remain eligible for the next run.\n"
         )
 
-    body += "\nThis is an automated report from Jobscr."
+    body += "\nThis is an automated report from Jobscr Behemoth Vacancy Mailer."
 
     msg = EmailMessage()
     msg['Subject'] = subject
