@@ -17,10 +17,13 @@ django.setup()
 from scrapping_engine.models import JobBoard
 
 SEARCH_QUERIES = [
-    "zimbabwe job vacancies",
-    "zimbabwe jobs recruitment",
+    "job vacancies",
+    " jobs recruitment",
     "harare jobs careers",
-    "bulawayo job vacancies",
+    "usa job vacancies",
+    "uk job vacancies",
+    "spain job vacancies",
+    "italy job vacancies",
 ]
 
 NON_JOB_BOARD_DOMAINS = [
@@ -116,20 +119,20 @@ def send_summary_email(status, stats, board_details, start_time):
 
     body = (
         "Job Board Discovery Run Report\n"
-        "=================================================================\n"
+        "=======================================================\n"
         f"Status:              {status}\n"
         f"Started:             {start_time.strftime('%Y-%m-%d %H:%M:%S')}\n"
         f"Finished:            {end_time.strftime('%Y-%m-%d %H:%M:%S')}\n"
         f"Duration:            {duration:.1f} seconds\n"
         "\n"
         "Database Snapshot\n"
-        "---------------------------------------------\n"
+        "-------------------------------------------------------\n"
         f"Total boards in DB:      {total_boards}\n"
         f"Active boards:           {active_boards}\n"
         f"Inactive boards:         {inactive_boards}\n"
         "\n"
         "Discovery Statistics\n"
-        "---------------------------------------------\n"
+        "-------------------------------------------------------\n"
         f"Search queries executed: {stats['queries_run']}/{len(SEARCH_QUERIES)}\n"
         f"Raw URLs returned:       {stats['raw_urls']}\n"
         f"URLs filtered out:       {stats['filtered_out']}\n"
@@ -138,7 +141,7 @@ def send_summary_email(status, stats, board_details, start_time):
         f"Errors:                  {len(stats['errors'])}\n"
         "\n"
         "New Boards Added This Run\n"
-        "---------------------------------------------\n"
+        "------------------------------------------------------\n"
     )
 
     if board_details:
@@ -149,7 +152,7 @@ def send_summary_email(status, stats, board_details, start_time):
 
     if stats['errors']:
         body += "\nErrors Encountered\n"
-        body += "---------------------------------------------\n"
+        body += "-----------------------------------------------------\n"
         for err in stats['errors']:
             body += f"- {err}\n"
 
