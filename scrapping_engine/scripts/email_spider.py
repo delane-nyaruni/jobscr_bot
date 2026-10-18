@@ -23,7 +23,7 @@ EMAIL_REGEX = r'[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+'
 
 # Expanded keywords to catch more job links
 JOB_LINK_KEYWORDS = [
-    "/job", "/post", "/detail", "/vacancy", "/careers", "/opening", 
+    "/job","/web developer", "/ict","/software","/post", "/detail", "/vacancy", "/careers", "/opening", 
     "/position", "/listing", "?job=", "?vacancy=", "?career="
 ]
 
@@ -248,4 +248,4 @@ def scrape_emails():
 if __name__ == "__main__":
     print("Initializing Email Extraction Engine...")
     scrape_emails()
-    print("\nEmail extraction run complete.")
+    print("\n Email extraction run complete.")

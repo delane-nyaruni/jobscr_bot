@@ -25,19 +25,19 @@ SEARCH_QUERIES = [
 
 NON_JOB_BOARD_DOMAINS = [
     # Social media
-    "facebook.com", "twitter.com", "linkedin.com", "youtube.com",
-    "instagram.com", "wikipedia.org", "reddit.com", "tiktok.com",
-    "pinterest.com", "yahoo.com",
+    # "facebook.com", "twitter.com", "linkedin.com", "youtube.com",
+    # "instagram.com", "wikipedia.org", "reddit.com", "tiktok.com",
+    # "pinterest.com", "yahoo.com",
     # Search engines
-    "google.com", "bing.com", "duckduckgo.com",
+    # "google.com", "bing.com", "duckduckgo.com",
     # Global aggregators (anti-bot blocks make them useless)
-    "indeed.com", "ziprecruiter.com", "glassdoor.com", "monster.com",
+    # "indeed.com", "ziprecruiter.com", "glassdoor.com", "monster.com",
     # Government / embassy / council
     "usembassy.gov", "gov.zw", "citybyo.co.zw", "hararecity.co.zw",
     # Travel / tourism noise
-    "britannica.com", "tripadvisor.com", "worldatlas.com", "mapquest.com",
-    "visitseattle.org", "seattle.gov", "pindula.co.zw", "newzimbabwe.com",
-    "zimfieldguide.com", "greatzimbabweguide.com", "zimbabwetourism.net",
+    # "britannica.com", "tripadvisor.com", "worldatlas.com", "mapquest.com",
+    # "visitseattle.org", "seattle.gov", "pindula.co.zw", "newzimbabwe.com",
+    # "zimfieldguide.com", "greatzimbabweguide.com", "zimbabwetourism.net",
     "theworldfactbook.org", "countryreports.org", "gisgeography.com",
 ]
 
