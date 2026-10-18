@@ -17,12 +17,11 @@ django.setup()
 
 from scrapping_engine.models import JobBoard, JobLead, CandidateCV
 from utilities.seed_utils import get_blacklist, load_json
+from utilities.geo_utils import generate_global_map
 
-# Load configurations from seed folder
 JOB_LINK_KEYWORDS = load_json('job_link_keywords.json')
 JUNK_TITLE_KEYWORDS = load_json('junk_title_keywords.json')
 
-# Convert lists to sets for faster lookups
 PLACEHOLDER_LOCAL_PARTS = set(load_json('placeholder_local_parts.json'))
 PLACEHOLDER_DOMAINS = set(load_json('placeholder_domains.json'))
 CSS_NOISE_LOCALS = set(load_json('css_noise_locals.json'))
@@ -35,46 +34,30 @@ MAX_LINKS_PER_ROLE = 4
 MAX_EMAILS_PER_JOB = 4
 
 HEADERS = {
-    "User-Agent": (
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-        "AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/120.0.0.0 Safari/537.36"
-    )
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 }
 
 
 def is_valid_email(email, blacklist):
     email = email.lower().strip().rstrip('.,;:')
-    if not email or '@' not in email:
-        return False
-    if not re.fullmatch(EMAIL_REGEX, email):
-        return False
+    if not email or '@' not in email: return False
+    if not re.fullmatch(EMAIL_REGEX, email): return False
     local, _, domain = email.partition('@')
-    if not local or not domain:
-        return False
-    if local in CSS_NOISE_LOCALS:
-        return False
-    if '..' in domain or domain.startswith('.') or domain.endswith('.'):
-        return False
-    if '..' in local or local.startswith('.') or local.endswith('.'):
-        return False
-    if local in PLACEHOLDER_LOCAL_PARTS:
-        return False
-    if domain in PLACEHOLDER_DOMAINS:
-        return False
-    if any(local.startswith(p) for p in REJECT_LOCAL_PREFIXES):
-        return False
-    if not any(domain.endswith(tld) for tld in VALID_TLDS):
-        return False
-    if any(bl in domain for bl in blacklist):
-        return False
+    if not local or not domain: return False
+    if local in CSS_NOISE_LOCALS: return False
+    if '..' in domain or domain.startswith('.') or domain.endswith('.'): return False
+    if '..' in local or local.startswith('.') or local.endswith('.'): return False
+    if local in PLACEHOLDER_LOCAL_PARTS: return False
+    if domain in PLACEHOLDER_DOMAINS: return False
+    if any(local.startswith(p) for p in REJECT_LOCAL_PREFIXES): return False
+    if not any(domain.endswith(tld) for tld in VALID_TLDS): return False
+    if any(bl in domain for bl in blacklist): return False
     return True
 
 
 def extract_emails_from_html(html_text, blacklist):
     soup = BeautifulSoup(html_text, 'html.parser')
-    for tag in soup(['style', 'script', 'noscript']):
-        tag.decompose()
+    for tag in soup(['style', 'script', 'noscript']): tag.decompose()
     clean_text = soup.get_text(separator=' ')
     raw_emails = re.findall(EMAIL_REGEX, clean_text)
     clean = set()
@@ -90,15 +73,12 @@ def extract_job_title(soup):
 
 
 def is_junk_page(job_title, url):
-    if any(kw in job_title.lower() for kw in JUNK_TITLE_KEYWORDS):
-        return True
-    if any(kw in url.lower() for kw in ['/pricing', '/services', '/post-a-job', '/advertise', '/register']):
-        return True
+    if any(kw in job_title.lower() for kw in JUNK_TITLE_KEYWORDS): return True
+    if any(kw in url.lower() for kw in ['/pricing', '/services', '/post-a-job', '/advertise', '/register']): return True
     return False
 
 
 def process_job_url(url, board, role, blacklist):
-    """Returns (added, duplicates, junk_skipped)."""
     added = 0
     duplicates = 0
     junk = 0
@@ -108,39 +88,29 @@ def process_job_url(url, board, role, blacklist):
         job_title = extract_job_title(soup)
 
         if is_junk_page(job_title, url):
-            print(f"        [-] Skipped junk page: {job_title[:60]}")
             return (0, 0, 1)
 
         emails = extract_emails_from_html(response.text, blacklist)
-        if not emails:
-            return (0, 0, 0)
+        if not emails: return (0, 0, 0)
 
         for email in emails[:MAX_EMAILS_PER_JOB]:
             if JobLead.objects.filter(email_link=email).exists():
-                print(f"        [-] Duplicate email: {email}")
                 duplicates += 1
                 continue
 
             lead, created = JobLead.objects.get_or_create(
                 email_link=email,
                 defaults={
-                    'job_url': url,
-                    'job_board': board,
-                    'cv_career': role,
-                    'job_title': job_title,
-                    'country': "Zimbabwe",
-                    'job_type': "Remote/Full-time",
+                    'job_url': url, 'job_board': board, 'cv_career': role,
+                    'job_title': job_title, 'country': "Zimbabwe", 'job_type': "Remote/Full-time"
                 }
             )
             if created:
-                print(f"        [+] Saved: {email} | {job_title[:40]}")
                 added += 1
             else:
                 duplicates += 1
-    except requests.exceptions.Timeout:
-        print(f"        [!] Timeout: {url}")
-    except Exception as e:
-        print(f"        [!] Error: {e}")
+    except Exception:
+        pass
     return (added, duplicates, junk)
 
 
@@ -151,55 +121,32 @@ def find_job_links(board_url):
         soup = BeautifulSoup(response.text, 'html.parser')
         for anchor in soup.find_all('a', href=True):
             href = anchor['href'].strip()
-            if not href or href.startswith(('mailto:', 'tel:', 'javascript:', '#')):
-                continue
+            if not href or href.startswith(('mailto:', 'tel:', 'javascript:', '#')): continue
             full_url = urljoin(board_url, href)
             if any(kw in full_url.lower() for kw in JOB_LINK_KEYWORDS):
                 job_links.append(full_url)
-    except Exception as e:
-        print(f"      [!] Could not fetch board: {e}")
+    except Exception:
         return []
-
-    seen = set()
-    unique = []
-    for link in job_links:
-        if link not in seen:
-            seen.add(link)
-            unique.append(link)
-    return unique
+    return list(dict.fromkeys(job_links))
 
 
 def _get_env(*names):
     for name in names:
         value = os.environ.get(name)
-        if value:
-            return value
+        if value: return value
     return None
 
 
 def send_summary_email(status, stats, roles, board_details, start_time):
-    print("\n--- GENERATING EMAIL REPORT ---")
-
     sender = _get_env('EMAIL_SENDER', 'EMAIL_USER')
     password = os.environ.get('EMAIL_PASSWORD')
     receiver = _get_env('EMAIL_RECEIVER', 'RECEIVER_EMAIL')
 
-    missing = []
-    if not sender:
-        missing.append("EMAIL_SENDER or EMAIL_USER")
-    if not password:
-        missing.append("EMAIL_PASSWORD")
-    if not receiver:
-        missing.append("EMAIL_RECEIVER or RECEIVER_EMAIL")
-
-    if missing:
-        print(f"  [!] Missing secrets: {', '.join(missing)}. Skipping email.")
-        return
+    if not (sender and password and receiver): return
 
     end_time = datetime.now()
     duration = (end_time - start_time).total_seconds()
 
-    # Database snapshot
     total_cvs = CandidateCV.objects.count()
     total_boards = JobBoard.objects.count()
     active_boards = JobBoard.objects.filter(is_active=True).count()
@@ -208,10 +155,7 @@ def send_summary_email(status, stats, roles, board_details, start_time):
     applied = JobLead.objects.filter(applied=True).count()
     pending = JobLead.objects.filter(is_reported=True, applied=False).count()
 
-    subject = (
-        f"Email Spider [{status}]: {stats['leads_saved']} New Leads - "
-        f"{end_time.strftime('%Y-%m-%d')}"
-    )
+    subject = f"Email Spider [{status}]: {stats['leads_saved']} New Leads - {end_time.strftime('%Y-%m-%d')}"
 
     body = (
         "Email Spider Run Report\n"
@@ -247,31 +191,21 @@ def send_summary_email(status, stats, roles, board_details, start_time):
         "---------------------------------------------\n"
     )
 
-    if board_details:
-        for b in board_details:
-            if b['links'] == 0:
-                body += f"- {b['name']:<22} no job links found\n"
-            else:
-                body += (
-                    f"- {b['name']:<22} {b['links']} links, "
-                    f"{b['leads']} new lead(s), "
-                    f"{b['dupes']} duplicate(s)\n"
-                )
-    else:
-        body += "(no boards processed)\n"
+    for b in board_details:
+        if b['links'] == 0:
+            body += f"- {b['name']:<22} no job links found\n"
+        else:
+            body += f"- {b['name']:<22} {b['links']} links, {b['leads']} new lead(s), {b['dupes']} duplicate(s)\n"
 
     if stats['errors']:
-        body += "\nErrors Encountered\n"
-        body += "---------------------------------------------\n"
+        body += "\nErrors Encountered\n---------------------------------------------\n"
         for err in stats['errors']:
             body += f"- {err}\n"
 
     if stats['leads_saved'] > 0:
-        body += (
-            "\nThese leads are now saved in the database and marked UNREPORTED.\n"
-            "The mailing_engine will pick them up during its next scheduled run.\n"
-        )
+        body += "\nThese leads are now saved in the database and marked UNREPORTED.\n"
 
+    body += generate_global_map()
     body += "\nThis is an automated report from Jobscr Behemoth Email Crawler."
 
     msg = EmailMessage()
@@ -284,72 +218,46 @@ def send_summary_email(status, stats, roles, board_details, start_time):
         with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
             smtp.login(sender, password)
             smtp.send_message(msg)
-        print("  [+] Email sent successfully!")
-    except Exception as e:
-        print(f"  [!] SMTP Error: {e}")
+    except Exception:
+        pass
 
 
 def scrape_emails():
     start_time = datetime.now()
-    print("\n--- STARTING EMAIL EXTRACTION ---")
-    print(f"  [*] Run started at {start_time.strftime('%Y-%m-%d %H:%M:%S')}")
-
-    stats = {
-        "boards_scanned": 0,
-        "boards_no_links": 0,
-        "job_links": 0,
-        "pages_visited": 0,
-        "junk": 0,
-        "duplicates": 0,
-        "leads_saved": 0,
-        "errors": [],
-    }
+    stats = {"boards_scanned": 0, "boards_no_links": 0, "job_links": 0, "pages_visited": 0, "junk": 0, "duplicates": 0, "leads_saved": 0, "errors": []}
     board_details = []
 
     blacklist = get_blacklist()
-    print(f"  [*] Loaded {len(blacklist)} blacklisted domains")
-
     cvs = CandidateCV.objects.all()
     if not cvs.exists():
-        print("  [-] No CVs found.")
         send_summary_email("NO CVs", stats, [], [], start_time)
         return
 
-    roles = [cv.target_role for cv in cvs]
-    print(f"  [*] Target roles: {roles}")
+    roles = [cv.target_role for cv in cvs if cv.target_role]
+    if not roles:
+        send_summary_email("NO ROLES", stats, [], [], start_time)
+        return
 
     boards = JobBoard.objects.filter(is_active=True)
     if not boards.exists():
-        print("  [-] No active job boards.")
         send_summary_email("NO BOARDS", stats, roles, [], start_time)
         return
 
-    print(f"  [*] Scanning {boards.count()} active boards")
-
     for board in boards:
-        print(f"\n  Board: {board.name}")
         stats['boards_scanned'] += 1
-
         job_links = find_job_links(board.url)
         stats['job_links'] += len(job_links)
 
         if not job_links:
-            print("    [-] No job links found.")
             stats['boards_no_links'] += 1
-            stats['errors'].append(f"No job links on {board.name}")
-            board_details.append({
-                "name": board.name, "links": 0, "leads": 0, "dupes": 0,
-            })
+            board_details.append({"name": board.name, "links": 0, "leads": 0, "dupes": 0})
             continue
 
-        print(f"    [*] Found {len(job_links)} candidate job links")
         board_leads = 0
         board_dupes = 0
 
         for role in roles:
-            print(f"    Role: {role}")
             for url in job_links[:MAX_LINKS_PER_ROLE]:
-                print(f"      Checking: {url[:90]}")
                 added, dupes, junk = process_job_url(url, board, role, blacklist)
                 stats['pages_visited'] += 1
                 stats['leads_saved'] += added
@@ -359,26 +267,11 @@ def scrape_emails():
                 board_dupes += dupes
                 time.sleep(1)
 
-        board_details.append({
-            "name": board.name,
-            "links": len(job_links),
-            "leads": board_leads,
-            "dupes": board_dupes,
-        })
+        board_details.append({"name": board.name, "links": len(job_links), "leads": board_leads, "dupes": board_dupes})
 
-    print(f"\n  [*] Extraction complete. {stats['leads_saved']} new leads saved.")
-
-    if not stats['errors']:
-        status = "SUCCESS"
-    elif stats['leads_saved'] > 0:
-        status = "PARTIAL"
-    else:
-        status = "FAILED"
-
+    status = "SUCCESS" if not stats['errors'] else ("PARTIAL" if stats['leads_saved'] > 0 else "FAILED")
     send_summary_email(status, stats, roles, board_details, start_time)
 
 
 if __name__ == "__main__":
-    print("Initializing Email Extraction Engine...")
     scrape_emails()
-    print("\nEmail extraction run complete.")

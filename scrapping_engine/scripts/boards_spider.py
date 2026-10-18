@@ -15,6 +15,7 @@ django.setup()
 
 from scrapping_engine.models import JobBoard
 from utilities.seed_utils import load_json
+from utilities.geo_utils import generate_global_map
 
 # Load configurations from seed folder
 SEARCH_QUERIES = load_json('search_queries.json')
@@ -23,7 +24,6 @@ JOB_KEYWORDS = load_json('job_keywords.json')
 
 
 def search_via_tavily(query):
-    """Tavily keyless API - no account or card required."""
     results = []
     try:
         response = requests.post(
@@ -46,21 +46,14 @@ def search_via_tavily(query):
 
 
 def is_valid_job_board(url):
-    """Strict filter: domain must look like a job board, not noise."""
     try:
         domain = urlparse(url).netloc.lower().replace('www.', '')
-        
-        # Check against ignored domains
         if any(skip in domain for skip in NON_JOB_BOARD_DOMAINS):
             return False, None
-            
         if '.' not in domain:
             return False, None
-            
-        # Check for job keywords in the URL
         if not any(kw in url.lower() for kw in JOB_KEYWORDS):
             return False, None
-            
         name = domain.split('.')[0].capitalize()
         return True, name
     except Exception:
@@ -76,20 +69,15 @@ def _get_env(*names):
 
 
 def send_summary_email(status, stats, board_details, start_time):
-    """Sends the full stats-style summary email."""
     print("\n--- GENERATING EMAIL REPORT ---")
-
     sender = _get_env('EMAIL_SENDER', 'EMAIL_USER')
     password = os.environ.get('EMAIL_PASSWORD')
     receiver = _get_env('EMAIL_RECEIVER', 'RECEIVER_EMAIL')
 
     missing = []
-    if not sender:
-        missing.append("EMAIL_SENDER or EMAIL_USER")
-    if not password:
-        missing.append("EMAIL_PASSWORD")
-    if not receiver:
-        missing.append("EMAIL_RECEIVER or RECEIVER_EMAIL")
+    if not sender: missing.append("EMAIL_SENDER or EMAIL_USER")
+    if not password: missing.append("EMAIL_PASSWORD")
+    if not receiver: missing.append("EMAIL_RECEIVER or RECEIVER_EMAIL")
 
     if missing:
         print(f"  [!] Missing secrets: {', '.join(missing)}. Skipping email.")
@@ -98,15 +86,11 @@ def send_summary_email(status, stats, board_details, start_time):
     end_time = datetime.now()
     duration = (end_time - start_time).total_seconds()
 
-    # Database snapshot
     total_boards = JobBoard.objects.count()
     active_boards = JobBoard.objects.filter(is_active=True).count()
     inactive_boards = total_boards - active_boards
 
-    subject = (
-        f"Board Discovery [{status}]: {stats['new_added']} Added - "
-        f"{end_time.strftime('%Y-%m-%d')}"
-    )
+    subject = f"Board Discovery [{status}]: {stats['new_added']} Added - {end_time.strftime('%Y-%m-%d')}"
 
     body = (
         "Job Board Discovery Run Report\n"
@@ -142,17 +126,14 @@ def send_summary_email(status, stats, board_details, start_time):
         body += "(no new boards this run)\n"
 
     if stats['errors']:
-        body += "\nErrors Encountered\n"
-        body += "---------------------------------------------\n"
+        body += "\nErrors Encountered\n---------------------------------------------\n"
         for err in stats['errors']:
             body += f"- {err}\n"
 
     if stats['new_added'] > 0:
-        body += (
-            "\nNote: New boards are added as ACTIVE by default.\n"
-            "Log into Django Admin to review and deactivate any you don't want scraped.\n"
-        )
+        body += "\nNote: New boards are added as ACTIVE by default.\n"
 
+    body += generate_global_map()
     body += "\nThis is an automated report from Jobscr Behemoth Boards Crawler."
 
     msg = EmailMessage()
@@ -173,7 +154,6 @@ def send_summary_email(status, stats, board_details, start_time):
 def discover_boards():
     start_time = datetime.now()
     print("\n--- STARTING JOB BOARD DISCOVERY ---")
-    print(f"  [*] Run started at {start_time.strftime('%Y-%m-%d %H:%M:%S')}")
     
     if not SEARCH_QUERIES:
         print("  [!] No search queries found in seed/search_queries.json. Exiting.")
@@ -185,16 +165,8 @@ def discover_boards():
             known_domains.add(urlparse(url).netloc.lower().replace('www.', ''))
         except Exception:
             pass
-    print(f"  [*] Already tracking {len(known_domains)} domains in database")
 
-    stats = {
-        "queries_run": 0,
-        "raw_urls": 0,
-        "filtered_out": 0,
-        "duplicates": 0,
-        "new_added": 0,
-        "errors": [],
-    }
+    stats = {"queries_run": 0, "raw_urls": 0, "filtered_out": 0, "duplicates": 0, "new_added": 0, "errors": []}
     board_details = []
     max_stage = 15
     seen_this_run = set()
@@ -204,11 +176,9 @@ def discover_boards():
             break
 
         print(f"\n  Searching: {query}")
-        print("    [*] Searching via Tavily API...")
         urls = search_via_tavily(query)
         stats['queries_run'] += 1
         stats['raw_urls'] += len(urls)
-        print(f"          -> {len(urls)} raw links")
         time.sleep(2)
 
         if not urls:
@@ -233,25 +203,14 @@ def discover_boards():
             known_domains.add(domain)
 
             try:
-                JobBoard.objects.create(
-                    name=name,
-                    url=url,
-                    country="Zimbabwe",
-                    is_active=True,
-                )
-                print(f"      [+] Added to DB: {name} ({domain})")
+                JobBoard.objects.create(name=name, url=url, country="Zimbabwe", is_active=True)
                 stats['new_added'] += 1
                 board_details.append({"name": name, "domain": domain})
+                print(f"      [+] Added to DB: {name} ({domain})")
             except Exception as e:
-                msg = f"DB error saving {name}: {e}"
-                print(f"      [!] {msg}")
-                stats['errors'].append(msg)
+                stats['errors'].append(f"DB error saving {name}: {e}")
 
-    print(f"\n  [*] Discovery complete. {stats['new_added']} new boards added.")
-
-    status = "SUCCESS" if not stats['errors'] else (
-        "PARTIAL" if stats['new_added'] > 0 else "FAILED"
-    )
+    status = "SUCCESS" if not stats['errors'] else ("PARTIAL" if stats['new_added'] > 0 else "FAILED")
     send_summary_email(status, stats, board_details, start_time)
 
 
