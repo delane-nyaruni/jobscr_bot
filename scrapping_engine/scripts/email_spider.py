@@ -346,6 +346,7 @@ def scrape_emails():
         send_summary_email("NO CVs", stats, [], [], start_time)
         return
 
+    # This now successfully pulls the auto-parsed 'target_role' from your new UI uploads
     roles = [cv.target_role for cv in cvs]
     print(f"  [*] Target roles: {roles}")
 

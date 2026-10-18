@@ -12,7 +12,6 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'dfms_backend.settings')
 django.setup()
 
 from django.conf import settings
-from django.db import connection
 from scrapping_engine.models import JobLead, CandidateCV
 from mailing_engine.models import ApplicationLog
 
@@ -30,22 +29,17 @@ def _get_env(*names):
     return None
 
 
-def _db_name():
-    engine = connection.settings_dict.get('ENGINE', 'unknown')
-    return engine.split('.')[-1] if '.' in engine else engine
-
-
 def get_cv_for_lead(lead):
     """Finds the CV that matches this lead's target role."""
-    if lead.cv_used:
-        path = os.path.join(settings.BASE_DIR, 'media', 'docs', 'cv', lead.cv_used.filename)
-        if os.path.exists(path):
-            return path
+    # 1. Try the specific CV used to find this lead
+    if lead.cv_used and lead.cv_used.cv_file:
+        return lead.cv_used.cv_file.path
+        
+    # 2. Fallback to any CV that matches the target role
     cv = CandidateCV.objects.filter(target_role=lead.cv_career).first()
-    if cv:
-        path = os.path.join(settings.BASE_DIR, 'media', 'docs', 'cv', cv.filename)
-        if os.path.exists(path):
-            return path
+    if cv and cv.cv_file:
+        return cv.cv_file.path
+        
     return None
 
 
@@ -127,14 +121,6 @@ def send_summary_email(status, stats, details, start_time):
         f"Started:             {start_time.strftime('%Y-%m-%d %H:%M:%S')}\n"
         f"Finished:            {end_time.strftime('%Y-%m-%d %H:%M:%S')}\n"
         f"Duration:            {duration:.1f} seconds\n"
-        "\n"
-        "System Report\n"
-        "---------------------------------------------\n"
-        f"Django version:          {django.get_version()}\n"
-        f"Python version:          {sys.version.split()[0]}\n"
-        f"Database backend:        {_db_name()}\n"
-        f"SMTP server:             {SMTP_SERVER}:{SMTP_PORT}\n"
-        f"Rate limit between sends:{RATE_LIMIT_SECONDS}s\n"
         "\n"
         "Database Snapshot\n"
         "---------------------------------------------\n"
