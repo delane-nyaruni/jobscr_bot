@@ -1,0 +1,9 @@
+[
+  ".com", ".org", ".net", ".edu", ".gov", ".mil", ".biz", ".info",
+  ".co.zw", ".org.zw", ".ac.zw", ".zw",
+  ".co.uk", ".org.uk", ".ac.uk", ".uk",
+  ".co.za", ".org.za", ".za",
+  ".io", ".ai", ".me", ".tech", ".dev",
+  ".us", ".ca", ".au", ".de", ".fr", ".in",
+  ".ke", ".ng", ".gh", ".tz", ".ug", ".zm", ".bw", ".mz"
+]

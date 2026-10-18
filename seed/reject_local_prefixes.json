@@ -1,0 +1,5 @@
+[
+  "noreply", "no-reply", "donotreply", "do-not-reply",
+  "postmaster", "mailer-daemon", "webmaster", "bounce",
+  "admin", "administrator", "info", "support", "help"
+]

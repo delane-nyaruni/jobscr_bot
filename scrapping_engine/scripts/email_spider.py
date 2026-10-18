@@ -16,51 +16,20 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'dfms_backend.settings')
 django.setup()
 
 from scrapping_engine.models import JobBoard, JobLead, CandidateCV
-from utilities.seed_utils import get_blacklist
+from utilities.seed_utils import get_blacklist, load_json
+
+# Load configurations from seed folder
+JOB_LINK_KEYWORDS = load_json('job_link_keywords.json')
+JUNK_TITLE_KEYWORDS = load_json('junk_title_keywords.json')
+
+# Convert lists to sets for faster lookups
+PLACEHOLDER_LOCAL_PARTS = set(load_json('placeholder_local_parts.json'))
+PLACEHOLDER_DOMAINS = set(load_json('placeholder_domains.json'))
+CSS_NOISE_LOCALS = set(load_json('css_noise_locals.json'))
+REJECT_LOCAL_PREFIXES = tuple(load_json('reject_local_prefixes.json'))
+VALID_TLDS = tuple(load_json('valid_tlds.json'))
 
 EMAIL_REGEX = r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?)*\.[a-zA-Z]{2,}'
-
-JOB_LINK_KEYWORDS = [
-    "/job", "/post", "/detail", "/vacancy", "/careers", "/opening",
-    "/position", "/listing", "?job=", "?vacancy=", "?career="
-]
-
-PLACEHOLDER_LOCAL_PARTS = {
-    "your", "youremail", "yourname", "your.name", "your.email", "your-email",
-    "name", "email", "username", "user", "test", "example", "sample", "demo",
-    "firstname", "lastname", "first.last", "john.doe", "johndoe",
-}
-
-PLACEHOLDER_DOMAINS = {
-    "domain.com", "yourdomain.com", "email.com", "youremail.com",
-    "example.com", "example.org", "test.com", "sample.com", "demo.com",
-    "mydomain.com", "yourname.com", "mydomain.co.zw", "yourdomain.co.zw",
-    "domain.co.zw", "email.co.zw", "sentry.io", "wixpress.com",
-}
-
-CSS_NOISE_LOCALS = {"wght", "font", "url", "data", "import", "var", "static", "media"}
-
-REJECT_LOCAL_PREFIXES = (
-    "noreply", "no-reply", "donotreply", "do-not-reply",
-    "postmaster", "mailer-daemon", "webmaster", "bounce",
-    "admin", "administrator", "info", "support", "help",
-)
-
-VALID_TLDS = (
-    ".com", ".org", ".net", ".edu", ".gov", ".mil", ".biz", ".info",
-    ".co.zw", ".org.zw", ".ac.zw", ".zw",
-    ".co.uk", ".org.uk", ".ac.uk", ".uk",
-    ".co.za", ".org.za", ".za",
-    ".io", ".ai", ".me", ".tech", ".dev",
-    ".us", ".ca", ".au", ".de", ".fr", ".in",
-    ".ke", ".ng", ".gh", ".tz", ".ug", ".zm", ".bw", ".mz",
-)
-
-JUNK_TITLE_KEYWORDS = (
-    "job posting package", "post a job", "pricing", "advertise",
-    "recruitment services", "cv writing", "cv design", "hire talent",
-    "post your cv", "register", "sign up", "login", "contact us",
-)
 
 MAX_LINKS_PER_ROLE = 4
 MAX_EMAILS_PER_JOB = 4

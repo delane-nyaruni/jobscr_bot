@@ -1,0 +1,4 @@
+[
+  "/job", "/post", "/detail", "/vacancy", "/careers", "/opening",
+  "/position", "/listing", "?job=", "?vacancy=", "?career="
+]

@@ -14,27 +14,12 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'dfms_backend.settings')
 django.setup()
 
 from scrapping_engine.models import JobBoard
+from utilities.seed_utils import load_json
 
-SEARCH_QUERIES = [
-    "zimbabwe job vacancies",
-    "zimbabwe jobs recruitment",
-    "harare jobs careers",
-    "bulawayo job vacancies",
-    "usa job vacancies",
-    "uk job vacancies",
-    "spain job vacancies",
-    "italy job vacancies",
-]
-
-NON_JOB_BOARD_DOMAINS = [
-    "usembassy.gov", "gov.zw", "citybyo.co.zw", "hararecity.co.zw",
-    "theworldfactbook.org", "countryreports.org", "gisgeography.com",
-]
-
-JOB_KEYWORDS = [
-    "job", "career", "vacancy", "recruit", "employ",
-    "hire", "hiring", "staffing", "talent",
-]
+# Load configurations from seed folder
+SEARCH_QUERIES = load_json('search_queries.json')
+NON_JOB_BOARD_DOMAINS = load_json('ignored_domains.json')
+JOB_KEYWORDS = load_json('job_keywords.json')
 
 
 def search_via_tavily(query):
@@ -64,12 +49,18 @@ def is_valid_job_board(url):
     """Strict filter: domain must look like a job board, not noise."""
     try:
         domain = urlparse(url).netloc.lower().replace('www.', '')
+        
+        # Check against ignored domains
         if any(skip in domain for skip in NON_JOB_BOARD_DOMAINS):
             return False, None
+            
         if '.' not in domain:
             return False, None
+            
+        # Check for job keywords in the URL
         if not any(kw in url.lower() for kw in JOB_KEYWORDS):
             return False, None
+            
         name = domain.split('.')[0].capitalize()
         return True, name
     except Exception:
@@ -183,6 +174,10 @@ def discover_boards():
     start_time = datetime.now()
     print("\n--- STARTING JOB BOARD DISCOVERY ---")
     print(f"  [*] Run started at {start_time.strftime('%Y-%m-%d %H:%M:%S')}")
+    
+    if not SEARCH_QUERIES:
+        print("  [!] No search queries found in seed/search_queries.json. Exiting.")
+        return
 
     known_domains = set()
     for url in JobBoard.objects.values_list('url', flat=True):
