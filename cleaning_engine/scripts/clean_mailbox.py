@@ -8,7 +8,6 @@ from datetime import datetime
 from email.message import EmailMessage
 from django.db.models import Sum
 
-# Project root is three levels up: scripts/ -> cleaning_engine/ -> project root
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.append(BASE_DIR)
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'dfms_backend.settings')
@@ -25,7 +24,6 @@ GMAIL_TRASH = '"[Gmail]/Trash"'
 
 
 def _get_env(*names):
-    """Returns the first non-empty environment variable from a list."""
     for name in names:
         value = os.environ.get(name)
         if value:
@@ -36,11 +34,9 @@ def _get_env(*names):
 def send_summary_email(status, total_count, detailed_log, sender, password, receiver,
                        targets_count=0, successful_targets=0, failed_targets=0,
                        duration_secs=0, start_time=None):
-    """Sends the cleanup summary report via SMTP with rich run details."""
     now = datetime.now()
     subject = f"Cleanup Report [{status}]: {total_count} Deleted - {now.strftime('%Y-%m-%d')}"
 
-    # Database Snapshot Metrics
     total_runs = CleanupRun.objects.count()
     total_ever = CleanupRun.objects.aggregate(total=Sum('total_deleted'))['total'] or 0
 
@@ -66,7 +62,6 @@ def send_summary_email(status, total_count, detailed_log, sender, password, rece
         "\n\n"
     )
 
-    # Inserts Detailed List
     body += f"\nDetails by System [{targets_count}]\n"
     body += "-----------------------------------------------------------------\n"
     
@@ -87,10 +82,7 @@ def send_summary_email(status, total_count, detailed_log, sender, password, rece
     msg['From'] = sender
     msg['To'] = receiver
     
-    # Set plain text fallback
     msg.set_content(body)
-    
-    # Set HTML alternative for nice, pre-formatted UI
     msg.add_alternative(f"<div style='font-family: monospace; white-space: pre-wrap;'>{body}</div>", subtype='html')
 
     try:
@@ -107,17 +99,14 @@ def run_cleanup():
     print("\n--- STARTING MAILBOX CLEANUP ---")
     print(f"  [*] Run started at {start_time.strftime('%Y-%m-%d %H:%M:%S')}")
 
-    # 1. Load credentials
     sender = _get_env('EMAIL_SENDER', 'EMAIL_USER')
     password = os.environ.get('EMAIL_PASSWORD')
     receiver = _get_env('EMAIL_RECEIVER', 'RECEIVER_EMAIL')
 
     if not (sender and password and receiver):
-        print("  [!] Missing email credentials "
-              "(EMAIL_SENDER/USER, EMAIL_PASSWORD, EMAIL_RECEIVER/USER).")
+        print("  [!] Missing email credentials (EMAIL_SENDER/USER, EMAIL_PASSWORD, EMAIL_RECEIVER/USER).")
         return
 
-    # 2. Get cleanup targets from the database
     targets = list(MailCleanupTarget.objects.values_list("email", flat=True))
     targets_count = len(targets)
 
@@ -136,7 +125,6 @@ def run_cleanup():
 
     print(f"  [*] {targets_count} cleanup target(s) loaded from database")
 
-    # 3. Connect to IMAP
     mail = None
     total_deleted = 0
     successful_targets = 0
@@ -150,7 +138,6 @@ def run_cleanup():
         mail.select(GMAIL_ALL_MAIL)
         print("  [+] Connected and selected [Gmail]/All Mail")
 
-        # 4. Process each target independently
         for idx, target in enumerate(targets, start=1):
             print(f"  [*] ({idx}/{targets_count}) Searching for emails from: {target}")
             try:
@@ -200,7 +187,6 @@ def run_cleanup():
                 detail_lines.append(f"- {target}: ERROR ({str(e)[:100]})")
                 failed_targets += 1
 
-        # 5. Finalize IMAP session
         mail.expunge()
         mail.logout()
         print(f"  [+] IMAP session closed.")
@@ -232,7 +218,6 @@ def run_cleanup():
         )
         return
 
-    # 6. Compute final status
     if failed_targets == 0:
         final_status = "SUCCESS"
     elif successful_targets > 0:
@@ -247,7 +232,6 @@ def run_cleanup():
     print(f"  [*] Total deleted: {total_deleted}")
     print(f"  [*] Targets OK: {successful_targets}, failed: {failed_targets}")
 
-    # 7. Save to database
     try:
         CleanupRun.objects.create(
             total_deleted=total_deleted,
@@ -257,7 +241,6 @@ def run_cleanup():
     except Exception as e:
         print(f"  [!] Failed to save CleanupRun to database: {e}")
 
-    # 8. Send email report (always)
     send_summary_email(
         status=final_status,
         total_count=total_deleted,

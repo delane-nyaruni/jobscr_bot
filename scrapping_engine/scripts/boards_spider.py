@@ -17,7 +17,6 @@ from scrapping_engine.models import JobBoard
 from utilities.seed_utils import load_json
 from utilities.geo_utils import generate_global_map
 
-# Load configurations from seed folder
 SEARCH_QUERIES = load_json('search_queries.json')
 NON_JOB_BOARD_DOMAINS = load_json('ignored_domains.json')
 JOB_KEYWORDS = load_json('job_keywords.json')
@@ -120,7 +119,6 @@ def send_summary_email(status, stats, board_details, start_time):
         "\n"
     )
 
-    # Insert Map before Details
     body += map_text
     body += f"\nNew Boards Added This Run [{stats['new_added']}]\n"
     body += "-----------------------------------------------------------------\n"
@@ -147,12 +145,8 @@ def send_summary_email(status, stats, board_details, start_time):
     msg['From'] = sender
     msg['To'] = receiver
     
-    # Set plain text fallback
     msg.set_content(body)
-    
-    # Create HTML version by swapping the map text with the colored HTML map
     html_body = body.replace(map_text, map_html)
-    # Use pre-wrap to maintain the ASCII formatting
     msg.add_alternative(f"<div style='font-family: monospace; white-space: pre-wrap;'>{html_body}</div>", subtype='html')
 
     try:

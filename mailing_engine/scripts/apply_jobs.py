@@ -12,7 +12,7 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'dfms_backend.settings')
 django.setup()
 
 from django.utils import timezone
-from scrapping_engine.models import JobLead, CandidateCV
+from scrapping_engine.models import JobLead, CandidateCV, IgnoredDomain
 from mailing_engine.models import ApplicationLog
 from utilities.geo_utils import generate_global_map
 
@@ -32,11 +32,8 @@ def _get_env(*names):
 
 def get_cv_for_lead(lead):
     """Finds the CV from the DB and returns the object."""
-    # 1. Try the specific CV linked to this lead
     if lead.cv_used and lead.cv_used.cv_data:
         return lead.cv_used
-        
-    # 2. Fallback to any CV that matches the target role and has data
     cv = CandidateCV.objects.filter(target_role=lead.cv_career).exclude(cv_data__isnull=True).exclude(cv_data="").first()
     return cv
 
@@ -62,7 +59,6 @@ Best regards,
 
     if cv_obj and cv_obj.cv_data:
         try:
-            # Decode the Base64 string back into a PDF file
             file_data = base64.b64decode(cv_obj.cv_data)
             msg.add_attachment(
                 file_data, 
@@ -71,7 +67,6 @@ Best regards,
                 filename=cv_obj.filename
             )
         except Exception as e:
-            # Raise error so the main loop catches it and logs a FAILURE
             raise Exception(f"Failed to decode CV attachment: {e}")
 
     return msg
@@ -101,7 +96,6 @@ def send_summary_email(status, stats, details, start_time):
     mode = "DRY RUN" if stats['dry_run'] else "LIVE"
     subject = f"Job Application [{status}] ({mode}): {stats['sent']} Sent, {stats['failed']} Failed - {end_time.strftime('%Y-%m-%d')}"
 
-    # Generate the maps (Plain text and HTML)
     map_text = generate_global_map(html=False)
     map_html = generate_global_map(html=True)
 
@@ -134,17 +128,16 @@ def send_summary_email(status, stats, details, start_time):
         f"Emails Sent:             {stats['sent']}\n"
         f"Skipped (No CV):         {stats['no_cv']}\n"
         f"Failed Sends:            {stats['failed']}\n"
+        f"Auto-Blacklisted:        {stats['blacklisted']}\n"
         "\n\n"
     )
 
-    # Insert the map right before the list
     body += map_text
     body += f"\nDetails by Lead [{stats['queue_total']}]\n"
     body += "-----------------------------------------------------------------\n"
 
     if details:
         for d in details:
-            # [45] width mapping for status and email
             body += f"[{d['status']:<7}] {d['email']:<40} {d['title'][:40]}\n"
             if d.get('reason'):
                 body += f"           > {d['reason']}\n"
@@ -168,12 +161,8 @@ def send_summary_email(status, stats, details, start_time):
     msg['From'] = sender
     msg['To'] = receiver
     
-    # Set plain text fallback
     msg.set_content(body)
-    
-    # Create HTML version by swapping the map text with the colored HTML map
     html_body = body.replace(map_text, map_html)
-    # Use pre-wrap to maintain the ASCII formatting and preserve green color tags
     msg.add_alternative(f"<div style='font-family: monospace; white-space: pre-wrap;'>{html_body}</div>", subtype='html')
 
     try:
@@ -187,7 +176,7 @@ def send_summary_email(status, stats, details, start_time):
 
 def apply_jobs(live=False):
     start_time = timezone.now()
-    stats = {"dry_run": not live, "queue_total": 0, "eligible": 0, "processed": 0, "sent": 0, "failed": 0, "no_cv": 0, "errors": []}
+    stats = {"dry_run": not live, "queue_total": 0, "eligible": 0, "processed": 0, "sent": 0, "failed": 0, "no_cv": 0, "blacklisted": 0, "errors": []}
     details = []
 
     sender = _get_env('EMAIL_SENDER', 'EMAIL_USER')
@@ -214,7 +203,6 @@ def apply_jobs(live=False):
         stats['processed'] += 1
         print(f"\n    -> Lead: {lead.email_link} ({lead.job_title[:50]})")
         
-        # 2. Find the CV
         cv_obj = get_cv_for_lead(lead)
         
         if not cv_obj:
@@ -233,7 +221,6 @@ def apply_jobs(live=False):
             })
             continue
 
-        # 3. Get the name dynamically from the specific CV being used
         candidate_name = cv_obj.full_name if cv_obj.full_name else "Candidate"
 
         if not live:
@@ -246,14 +233,12 @@ def apply_jobs(live=False):
             })
             continue
 
-        # 4. Send the Email
         try:
             msg = compose_application(sender, cv_obj, lead, candidate_name)
             with smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT) as smtp:
                 smtp.login(sender, password)
                 smtp.send_message(msg)
 
-            # 5. Mark as applied and log success
             lead.applied = True
             lead.applied_at = timezone.now()
             lead.save()
@@ -269,31 +254,53 @@ def apply_jobs(live=False):
             time.sleep(RATE_LIMIT_SECONDS)
 
         except Exception as e:
-            print(f"       [!] Failed: {e}")
-            ApplicationLog.objects.create(
-                lead=lead, 
-                status="FAILURE", 
-                reason=str(e)[:500]
-            )
-            stats['failed'] += 1
-            stats['errors'].append(f"{lead.email_link}: {str(e)[:100]}")
-            details.append({
-                "status": "FAILED", 
-                "email": lead.email_link, 
-                "title": lead.job_title, 
-                "reason": str(e)[:100]
-            })
+            error_msg = str(e)
+            print(f"       [!] Failed: {error_msg}")
+            
+            # --- SELF HEALING BLACKLIST LOGIC ---
+            if any(code in error_msg for code in ['550', '553', '554', '501', 'invalid address']):
+                domain = lead.email_link.split('@')[-1]
+                print(f"       [X] Invalid address. Deleting lead and blacklisting domain: {domain}")
+                
+                IgnoredDomain.objects.get_or_create(
+                    domain=domain, 
+                    defaults={'reason': f"Invalid email address (SMTP: {error_msg[:50]})"}
+                )
+                stats['blacklisted'] += 1
+                
+                # Delete the bad lead so it's out of the queue forever
+                lead.delete()
+                
+                details.append({
+                    "status": "DELETED", 
+                    "email": lead.email_link, 
+                    "title": lead.job_title, 
+                    "reason": f"Invalid address. Domain {domain} blacklisted."
+                })
+            else:
+                ApplicationLog.objects.create(
+                    lead=lead, 
+                    status="FAILURE", 
+                    reason=error_msg[:500]
+                )
+                stats['failed'] += 1
+                stats['errors'].append(f"{lead.email_link}: {error_msg[:100]}")
+                details.append({
+                    "status": "FAILED", 
+                    "email": lead.email_link, 
+                    "title": lead.job_title, 
+                    "reason": error_msg[:100]
+                })
 
-    print(f"\n  [*] Run complete. Sent: {stats['sent']}, Failed: {stats['failed']}, Skipped: {stats['no_cv']}")
+    print(f"\n  [*] Run complete. Sent: {stats['sent']}, Failed: {stats['failed']}, Skipped: {stats['no_cv']}, Blacklisted: {stats['blacklisted']}")
 
-    # 6. Determine Status and Send Report
     if stats['dry_run']:
         status = "DRY RUN"
     elif stats['eligible'] == 0:
         status = "NO LEADS"
     elif not stats['errors'] and stats['sent'] > 0:
         status = "SUCCESS"
-    elif stats['sent'] > 0 or stats['no_cv'] > 0:
+    elif stats['sent'] > 0 or stats['no_cv'] > 0 or stats['blacklisted'] > 0:
         status = "PARTIAL"
     else:
         status = "FAILED"

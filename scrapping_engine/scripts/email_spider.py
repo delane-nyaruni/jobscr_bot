@@ -1,6 +1,5 @@
 import os
 import sys
-import re
 import time
 import django
 import requests
@@ -18,19 +17,11 @@ django.setup()
 from scrapping_engine.models import JobBoard, JobLead, CandidateCV
 from utilities.seed_utils import get_blacklist, load_json
 from utilities.geo_utils import generate_global_map
+from utilities.email_utils import extract_emails_from_html  # IMPORTED HERE
 
 JOB_LINK_KEYWORDS = load_json('job_link_keywords.json')
 JUNK_TITLE_KEYWORDS = load_json('junk_title_keywords.json')
 
-PLACEHOLDER_LOCAL_PARTS = set(load_json('placeholder_local_parts.json'))
-PLACEHOLDER_DOMAINS = set(load_json('placeholder_domains.json'))
-CSS_NOISE_LOCALS = set(load_json('css_noise_locals.json'))
-REJECT_LOCAL_PREFIXES = tuple(load_json('reject_local_prefixes.json'))
-VALID_TLDS = tuple(load_json('valid_tlds.json'))
-
-EMAIL_REGEX = r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?)*\.[a-zA-Z]{2,}'
-
-# TUNED PARAMETERS
 BATCH_SIZE = 25
 MAX_LINKS_PER_ROLE = 4
 MAX_EMAILS_PER_JOB = 4
@@ -41,46 +32,14 @@ HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 }
 
-
-def is_valid_email(email, blacklist):
-    email = email.lower().strip().rstrip('.,;:')
-    if not email or '@' not in email: return False
-    if not re.fullmatch(EMAIL_REGEX, email): return False
-    local, _, domain = email.partition('@')
-    if not local or not domain: return False
-    if local in CSS_NOISE_LOCALS: return False
-    if '..' in domain or domain.startswith('.') or domain.endswith('.'): return False
-    if '..' in local or local.startswith('.') or local.endswith('.'): return False
-    if local in PLACEHOLDER_LOCAL_PARTS: return False
-    if domain in PLACEHOLDER_DOMAINS: return False
-    if any(local.startswith(p) for p in REJECT_LOCAL_PREFIXES): return False
-    if not any(domain.endswith(tld) for tld in VALID_TLDS): return False
-    if any(bl in domain for bl in blacklist): return False
-    return True
-
-
-def extract_emails_from_html(html_text, blacklist):
-    soup = BeautifulSoup(html_text, 'html.parser')
-    for tag in soup(['style', 'script', 'noscript']): tag.decompose()
-    clean_text = soup.get_text(separator=' ')
-    raw_emails = re.findall(EMAIL_REGEX, clean_text)
-    clean = set()
-    for email in raw_emails:
-        if is_valid_email(email, blacklist):
-            clean.add(email.lower().strip())
-    return list(clean)
-
-
 def extract_job_title(soup):
     title_tag = soup.find('h1') or soup.find('h2')
     return title_tag.get_text(strip=True)[:255] if title_tag else "N/A"
-
 
 def is_junk_page(job_title, url):
     if any(kw in job_title.lower() for kw in JUNK_TITLE_KEYWORDS): return True
     if any(kw in url.lower() for kw in ['/pricing', '/services', '/post-a-job', '/advertise', '/register']): return True
     return False
-
 
 def process_job_url(url, board, role, blacklist):
     added = 0
@@ -94,6 +53,7 @@ def process_job_url(url, board, role, blacklist):
         if is_junk_page(job_title, url):
             return (0, 0, 1)
 
+        # Call the centralized utility here
         emails = extract_emails_from_html(response.text, blacklist)
         if not emails: return (0, 0, 0)
 
@@ -115,7 +75,6 @@ def process_job_url(url, board, role, blacklist):
         pass
     return (added, duplicates, junk)
 
-
 def find_job_links(board_url):
     job_links = []
     try:
@@ -131,13 +90,11 @@ def find_job_links(board_url):
         return []
     return list(dict.fromkeys(job_links))
 
-
 def _get_env(*names):
     for name in names:
         value = os.environ.get(name)
         if value: return value
     return None
-
 
 def send_summary_email(status, stats, roles, board_details, start_time):
     sender = _get_env('EMAIL_SENDER', 'EMAIL_USER')
@@ -194,7 +151,6 @@ def send_summary_email(status, stats, roles, board_details, start_time):
         "\n\n"
     )
 
-    # Insert Map before Details
     body += map_text
     body += f"\nDetails by Board [{stats['boards_scanned']}] \n"
     body += "-----------------------------------------------------------------\n"
@@ -220,12 +176,8 @@ def send_summary_email(status, stats, roles, board_details, start_time):
     msg['From'] = sender
     msg['To'] = receiver
     
-    # Set plain text fallback
     msg.set_content(body)
-    
-    # Create HTML version by swapping the map text with the colored HTML map
     html_body = body.replace(map_text, map_html)
-    # Use pre-wrap to maintain the ASCII formatting
     msg.add_alternative(f"<div style='font-family: monospace; white-space: pre-wrap;'>{html_body}</div>", subtype='html')
 
     try:
@@ -252,8 +204,6 @@ def scrape_emails():
         send_summary_email("NO ROLES", stats, [], [], start_time)
         return
 
-    # BATCHING: Get a random sample of active boards atleast get in line as to not skip other boards.
-    # This ensures all boards get scanned over time, but limits the current run to 25.
     boards = JobBoard.objects.filter(is_active=True).order_by('?')[:BATCH_SIZE]
     
     if not boards.exists():
