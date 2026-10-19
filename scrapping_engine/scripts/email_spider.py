@@ -203,7 +203,7 @@ def send_summary_email(status, stats, roles, board_details, start_time):
         if b['links'] == 0:
             body += f"- {b['name']:<22} no job links found\n"
         else:
-            body += f"- {b['name']:<22} {b['links']}] Links, {b['leads']} Lead(s), {b['dupes']} Duplicate(s)\n"
+            body += f"- {b['name']:<22} {b['links']} Link(s), {b['leads']} Lead(s), {b['dupes']} Duplicate(s)\n"
 
     if stats['errors']:
         body += f"\nErrors Encountered [{len(stats['errors'])}] \n-----------------------------------------------------------------\n"

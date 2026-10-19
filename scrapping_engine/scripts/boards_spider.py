@@ -139,7 +139,7 @@ def send_summary_email(status, stats, board_details, start_time):
     if stats['new_added'] > 0:
         body += "\nNote: New boards are added as ACTIVE by default.\n"
 
-    body += "\nThis is an automated report from Jobscr Behemoth Boards Crawler.\n\n"
+    body += "\nThis is an automated report from Jobscr Behemoth Boards Crawler.\n\n\n\n"
     body += "Powered by NineSoftStudio."
 
     msg = EmailMessage()
