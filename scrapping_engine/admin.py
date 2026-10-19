@@ -2,7 +2,7 @@ import os
 import base64
 from django import forms
 from django.contrib import admin
-from .models import JobBoard, CandidateCV, IgnoredDomain, JobLead
+from .models import JobBoard, CandidateCV, IgnoredDomain, JobLead, DeadLink
 from utilities.cv_utils import parse_cv_filename
 
 
@@ -23,7 +23,7 @@ def deactivate_boards(modeladmin, request, queryset):
 # ==========================================
 # 2. JOB LEAD BULK ACTIONS
 # ==========================================
-@admin.action(description="Mark leads for Mailer ")
+@admin.action(description="Mark leads for Mailer")
 def mark_as_reported(modeladmin, request, queryset):
     updated = queryset.update(is_reported=True)
     modeladmin.message_user(request, f"{updated} leads successfully marked as REPORTED.")
@@ -91,15 +91,15 @@ class JobBoardAdmin(admin.ModelAdmin):
     list_display = ('name', 'url', 'country', 'is_active')
     list_filter = ('is_active', 'country')
     search_fields = ('name', 'url')
-    
-    # Add the board actions to the dropdown
     actions = [activate_boards, deactivate_boards]
 
 
 @admin.register(IgnoredDomain)
 class IgnoredDomainAdmin(admin.ModelAdmin):
-    list_display = ('domain',)
-    search_fields = ('domain',)
+    list_display = ('domain', 'reason', 'added_at')
+    list_filter = ('added_at',)
+    search_fields = ('domain', 'reason')
+    readonly_fields = ('added_at',)
 
 
 @admin.register(JobLead)
@@ -108,6 +108,15 @@ class JobLeadAdmin(admin.ModelAdmin):
     list_filter = ('is_reported', 'applied', 'job_board', 'country')
     search_fields = ('email_link', 'job_title', 'cv_career')
     readonly_fields = ('found_at',)
-    
-    # Add the lead actions to the dropdown
     actions = [mark_as_reported, mark_as_applied, reset_to_unreported]
+
+
+# ==========================================
+# 5. DEAD LINK ADMIN
+# ==========================================
+@admin.register(DeadLink)
+class DeadLinkAdmin(admin.ModelAdmin):
+    list_display = ('domain', 'reason', 'detected_at', 'last_retry', 'retry_count')
+    list_filter = ('detected_at',)
+    search_fields = ('domain', 'url', 'reason')
+    readonly_fields = ('detected_at', 'last_retry', 'retry_count')
