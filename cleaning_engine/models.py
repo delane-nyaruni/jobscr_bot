@@ -14,7 +14,7 @@ class MailCleanupTarget(models.Model):
 
 
 class CleanupRun(models.Model):
-    """One run of the mailbox cleanup command."""
+    """One run for the mailbox cleanup command."""
     ran_at = models.DateTimeField(auto_now_add=True)
     total_deleted = models.PositiveIntegerField(default=0)
     detail = models.TextField(blank=True)
