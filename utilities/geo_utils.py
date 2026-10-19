@@ -46,7 +46,7 @@ def generate_global_map(html=False):
         bar = "█" * max(1, bar_length)
         
         if html:
-            # Green color for HTML email
+            # Green color for HTML email bars
             bar = f'<span style="color: #2ecc71;">{bar}</span>'
             
         map_lines.append(f"[{continent:<18}] {bar:<40} ({count} leads)")
