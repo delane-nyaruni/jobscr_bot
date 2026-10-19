@@ -268,7 +268,7 @@ def apply_jobs(live=False):
                 )
                 stats['blacklisted'] += 1
                 
-                # Delete the bad lead so it's out of the queue forever
+                # Delete the bad lead so it's out of  queue forever
                 lead.delete()
                 
                 details.append({
@@ -311,3 +311,4 @@ def apply_jobs(live=False):
 if __name__ == "__main__":
     live = '--live' in sys.argv
     apply_jobs(live=live)
+    
