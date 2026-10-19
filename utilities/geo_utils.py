@@ -51,5 +51,5 @@ def generate_global_map(html=False):
             
         map_lines.append(f"[{continent:<18}] {bar:<40} ({count} leads)")
         
-    # map_lines.append("-" * 69)
+    map_lines.append("\n")
     return "\n".join(map_lines)
