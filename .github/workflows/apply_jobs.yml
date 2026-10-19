@@ -1,4 +1,4 @@
-name: Applying Robot
+name: Mailing Robot
 
 on:
   schedule:

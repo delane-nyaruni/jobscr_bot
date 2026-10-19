@@ -38,7 +38,7 @@ def generate_global_map(html=False):
     max_count = max(continent_counts.values()) if continent_counts else 1
     
     # WIDER MAP FORMATTING
-    map_lines = ["\nJOBSCR BEHEMOTH GLOBAL MAP REACH", "-" * 69]
+    map_lines = ["\nJobscr Behemoth Global Map Reach", "-" * 69]
     
     for continent, count in sorted_continents:
         # INCREASED BAR LENGTH TO 40 BLOCKS
@@ -51,5 +51,5 @@ def generate_global_map(html=False):
             
         map_lines.append(f"[{continent:<18}] {bar:<40} ({count} leads)")
         
-    map_lines.append("-" * 69)
+    # map_lines.append("-" * 69)
     return "\n".join(map_lines)

@@ -6,6 +6,7 @@ import smtplib
 import django
 from datetime import datetime
 from email.message import EmailMessage
+from django.db.models import Sum
 
 # Project root is three levels up: scripts/ -> cleaning_engine/ -> project root
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -37,34 +38,40 @@ def send_summary_email(status, total_count, detailed_log, sender, password, rece
                        duration_secs=0, start_time=None):
     """Sends the cleanup summary report via SMTP with rich run details."""
     now = datetime.now()
-    subject = (
-        f"Cleanup Report [{status}]: {total_count} Deleted - "
-        f"{now.strftime('%Y-%m-%d')}"
-    )
+    subject = f"Cleanup Report [{status}]: {total_count} Deleted - {now.strftime('%Y-%m-%d')}"
+
+    # Database Snapshot Metrics
+    total_runs = CleanupRun.objects.count()
+    total_ever = CleanupRun.objects.aggregate(total=Sum('total_deleted'))['total'] or 0
 
     body = (
-        "Email Cleanup Automation Summary\n"
-        "=============================================\n"
+        "Email Cleanup Run Report\n"
+        "==========================================================\n"
         f"Status:              {status}\n"
         f"Started:             {start_time.strftime('%Y-%m-%d %H:%M:%S') if start_time else 'N/A'}\n"
         f"Finished:            {now.strftime('%Y-%m-%d %H:%M:%S')}\n"
         f"Duration:            {duration_secs:.1f} seconds\n"
         "\n"
-        "Run Statistics\n"
+        "Database Snapshot\n"
         "---------------------------------------------\n"
-        f"Cleanup targets configured: {targets_count}\n"
-        f"Targets processed OK:       {successful_targets}\n"
-        f"Targets with errors:        {failed_targets}\n"
-        f"Total emails deleted:       {total_count}\n"
+        f"Total cleanup targets:   {targets_count}\n"
+        f"Total cleanup runs:      {total_runs}\n"
+        f"Total deleted (all):     {total_ever}\n"
+        "\n"
+        "Cleanup Statistics (this run)\n"
+        "---------------------------------------------\n"
+        f"Targets processed OK:    {successful_targets}\n"
+        f"Targets with errors:     {failed_targets}\n"
+        f"Emails deleted:          {total_count}\n"
         "\n"
     )
 
+    # Insert Details List
+    body += f"\nDetails by Sender [ {targets_count} ]\n"
+    body += "---------------------------------------------\n"
+    
     if detailed_log:
-        body += (
-            "Details by Sender\n"
-            "---------------------------------------------\n"
-            f"{detailed_log}\n\n"
-        )
+        body += f"{detailed_log}\n\n"
     else:
         body += "No per-sender details to report.\n\n"
 
@@ -78,7 +85,12 @@ def send_summary_email(status, total_count, detailed_log, sender, password, rece
     msg['Subject'] = subject
     msg['From'] = sender
     msg['To'] = receiver
+    
+    # Set plain text fallback
     msg.set_content(body)
+    
+    # Set HTML alternative for nice, pre-formatted UI
+    msg.add_alternative(f"<div style='font-family: monospace; white-space: pre-wrap;'>{body}</div>", subtype='html')
 
     try:
         with smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT) as smtp:
