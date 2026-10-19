@@ -97,33 +97,33 @@ def send_summary_email(status, stats, board_details, start_time):
 
     body = (
         "Job Board Discovery Run Report\n"
-        "==========================================================\n"
+        "=================================================================\n"
         f"Status:              {status}\n"
         f"Started:             {start_time.strftime('%Y-%m-%d %H:%M:%S')}\n"
         f"Finished:            {end_time.strftime('%Y-%m-%d %H:%M:%S')}\n"
         f"Duration:            {duration:.1f} seconds\n"
         "\n"
         "Database Snapshot\n"
-        "---------------------------------------------\n"
-        f"Total boards in DB:      {total_boards}\n"
+        "-----------------------------------------------------------------\n"
+        f"Total Boards in Database:      {total_boards}\n"
         f"Active boards:           {active_boards}\n"
         f"Inactive boards:         {inactive_boards}\n"
         "\n"
         "Discovery Statistics\n"
-        "---------------------------------------------\n"
-        f"Search queries executed: {stats['queries_run']}/{len(SEARCH_QUERIES)}\n"
-        f"Raw URLs returned:       {stats['raw_urls']}\n"
-        f"URLs filtered out:       {stats['filtered_out']}\n"
-        f"Duplicates skipped:      {stats['duplicates']}\n"
-        f"NEW BOARDS ADDED:        {stats['new_added']}\n"
+        "-----------------------------------------------------------------\n"
+        f"Search Queries Executed: {stats['queries_run']}/{len(SEARCH_QUERIES)}\n"
+        f"Raw URLs Returned:       {stats['raw_urls']}\n"
+        f"URLs Filtered Out:       {stats['filtered_out']}\n"
+        f"Duplicates Skipped:      {stats['duplicates']}\n"
+        f"New Boards Added:        {stats['new_added']}\n"
         f"Errors:                  {len(stats['errors'])}\n"
         "\n"
     )
 
     # Insert Map before Details
     body += map_text
-    body += f"\n \nNew Boards Added This Run [{stats['new_added']}]\n"
-    body += "---------------------------------------------\n"
+    body += f"\nNew Boards Added This Run [{stats['new_added']}]\n"
+    body += "-----------------------------------------------------------------\n"
 
     if board_details:
         for b in board_details:
@@ -132,16 +132,15 @@ def send_summary_email(status, stats, board_details, start_time):
         body += "(no new boards this run)\n"
 
     if stats['errors']:
-        body += f"\nErrors Encountered [{len(stats['errors'])}] \n---------------------------------------------\n"
+        body += f"\nErrors Encountered [{len(stats['errors'])}] \n-----------------------------------------------------------------\n"
         for err in stats['errors']:
             body += f"- {err}\n"
 
     if stats['new_added'] > 0:
         body += "\nNote: New boards are added as ACTIVE by default.\n"
 
-    body += "\nThis is an automated report from Jobscr Behemoth Boards Crawler."
-    body += "\n"
-    body += "\nPowered by NineSoftStudio."
+    body += "\nThis is an automated report from Jobscr Behemoth Boards Crawler.\n\n"
+    body += "Powered by NineSoftStudio."
 
     msg = EmailMessage()
     msg['Subject'] = subject

@@ -160,32 +160,32 @@ def send_summary_email(status, stats, roles, board_details, start_time):
 
     body = (
         "Email Spider Run Report\n"
-        "==========================================================\n"
+        "=================================================================\n"
         f"Status:              {status}\n"
         f"Started:             {start_time.strftime('%Y-%m-%d %H:%M:%S')}\n"
         f"Finished:            {end_time.strftime('%Y-%m-%d %H:%M:%S')}\n"
         f"Duration:            {duration:.1f} seconds\n"
         "\n"
         "Database Snapshot\n"
-        "---------------------------------------------\n"
+        "-----------------------------------------------------------------\n"
         f"Candidate CVs:           {total_cvs}\n"
-        f"Target roles:            {', '.join(roles) if roles else 'None'}\n"
-        f"Total boards in DB:      {total_boards}\n"
-        f"Active boards:           {active_boards}\n"
-        f"Total leads in DB:       {total_leads}\n"
-        f"Unreported leads:        {unreported}\n"
-        f"Awaiting application:    {pending}\n"
-        f"Already applied:         {applied}\n"
+        f"Target Roles:            {', '.join(roles) if roles else 'None'}\n"
+        f"Total Boards in Database:      {total_boards}\n"
+        f"Active Boards:           {active_boards}\n"
+        f"Total Leads in Database:       {total_leads}\n"
+        f"Unreported Leads:        {unreported}\n"
+        f"Awaiting Application:    {pending}\n"
+        f"Already Applied:         {applied}\n"
         "\n"
         "Extraction Statistics\n"
-        "---------------------------------------------\n"
-        f"Boards scanned:          {stats['boards_scanned']}/{active_boards}\n"
-        f"Boards with no links:    {stats['boards_no_links']}\n"
-        f"Total job links found:   {stats['job_links']}\n"
-        f"Job pages visited:       {stats['pages_visited']}\n"
-        f"Junk pages skipped:      {stats['junk']}\n"
-        f"Duplicate emails skipped:{stats['duplicates']}\n"
-        f"NEW LEADS SAVED:         {stats['leads_saved']}\n"
+        "-----------------------------------------------------------------\n"
+        f"Boards Scanned:          {stats['boards_scanned']}/{active_boards}\n"
+        f"Boards With No Links:    {stats['boards_no_links']}\n"
+        f"Total Job Links Found:   {stats['job_links']}\n"
+        f"Job Pages Visited:       {stats['pages_visited']}\n"
+        f"Junk Pages Skipped:      {stats['junk']}\n"
+        f"Duplicate Emails Skipped:{stats['duplicates']}\n"
+        f"New Leads Saved:         {stats['leads_saved']}\n"
         f"Errors:                  {len(stats['errors'])}\n"
         "\n"
     )
@@ -193,7 +193,7 @@ def send_summary_email(status, stats, roles, board_details, start_time):
     # Insert Map before Details
     body += map_text
     body += f"\nDetails by Board [{stats['boards_scanned']}] \n"
-    body += "---------------------------------------------\n"
+    body += "-----------------------------------------------------------------\n"
 
     for b in board_details:
         if b['links'] == 0:
@@ -202,7 +202,7 @@ def send_summary_email(status, stats, roles, board_details, start_time):
             body += f"- {b['name']:<22} {b['links']} links, {b['leads']} new lead(s), {b['dupes']} duplicate(s)\n"
 
     if stats['errors']:
-        body += f"\nErrors Encountered [{len(stats['errors'])}] \n---------------------------------------------\n"
+        body += f"\nErrors Encountered [{len(stats['errors'])}] \n-----------------------------------------------------------------\n"
         for err in stats['errors']:
             body += f"- {err}\n"
 

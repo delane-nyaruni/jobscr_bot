@@ -46,29 +46,29 @@ def send_summary_email(status, total_count, detailed_log, sender, password, rece
 
     body = (
         "Email Cleanup Run Report\n"
-        "==========================================================\n"
+        "=================================================================\n"
         f"Status:              {status}\n"
         f"Started:             {start_time.strftime('%Y-%m-%d %H:%M:%S') if start_time else 'N/A'}\n"
         f"Finished:            {now.strftime('%Y-%m-%d %H:%M:%S')}\n"
         f"Duration:            {duration_secs:.1f} seconds\n"
         "\n"
         "Database Snapshot\n"
-        "---------------------------------------------\n"
-        f"Total cleanup targets:   {targets_count}\n"
-        f"Total cleanup runs:      {total_runs}\n"
-        f"Total deleted (all):     {total_ever}\n"
+        "-----------------------------------------------------------------\n"
+        f"Total Cleanup Targets:   {targets_count}\n"
+        f"Total Cleanup Runs:      {total_runs}\n"
+        f"Total Deleted (All):     {total_ever}\n"
         "\n"
-        "Cleanup Statistics (this run)\n"
-        "---------------------------------------------\n"
-        f"Targets processed OK:    {successful_targets}\n"
-        f"Targets with errors:     {failed_targets}\n"
-        f"Emails deleted:          {total_count}\n"
+        "Cleanup Statistics (current run)\n"
+        "-----------------------------------------------------------------\n"
+        f"Targets Processed OK:    {successful_targets}\n"
+        f"Targets With Errors:     {failed_targets}\n"
+        f"Emails Deleted:          {total_count}\n"
         "\n"
     )
 
     # Insert Details List
-    body += f"\nDetails by Sender [ {targets_count} ]\n"
-    body += "---------------------------------------------\n"
+    body += f"\nDetails by System [{targets_count}]\n"
+    body += "-----------------------------------------------------------------\n"
     
     if detailed_log:
         body += f"{detailed_log}\n\n"
