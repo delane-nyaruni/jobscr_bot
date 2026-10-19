@@ -1,6 +1,9 @@
 name: Email Crawler
 
 on:
+  push:
+    branches:
+      - main
   schedule:
     - cron: '0 */2 * * *'   # every 2 hours (00:00, 02:00, 04:00, etc. UTC)
   workflow_dispatch:        # manual trigger

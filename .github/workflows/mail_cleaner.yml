@@ -1,6 +1,9 @@
 name: Clean Mailbox
 
 on:
+  push:
+    branches:
+      - main
   schedule:
     - cron: '0 5 1 * *'    # 1st of every month, 05:00 UTC
   workflow_dispatch:
@@ -19,6 +22,7 @@ jobs:
       - run: python manage.py migrate --verbosity 3
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          MYSQL_DB_PASSWORD: ${{ secrets.MYSQL_DB_PASSWORD }}
       - name: Run Mailbox Cleanup
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}

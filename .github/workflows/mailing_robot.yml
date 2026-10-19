@@ -1,8 +1,11 @@
 name: Mailing Robot
 
 on:
+  push:
+    branches:
+      - main
   schedule:
-    - cron: '*/10 * * * *'       # Every 20 minutes (3 times an hour, 72 times a day)
+    - cron: '*/10 * * * *'       # Every 10 minutes
   workflow_dispatch:
 
 jobs:
@@ -11,14 +14,23 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: pip install -r requirements.txt
-      - run: python manage.py migrate --verbosity 3
+          
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+        
+      - name: Migrate Database
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          MYSQL_DB_PASSWORD: ${{ secrets.MYSQL_DB_PASSWORD }}
+        run: python manage.py migrate --verbosity 3
+        
       - name: Run Job Application
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
