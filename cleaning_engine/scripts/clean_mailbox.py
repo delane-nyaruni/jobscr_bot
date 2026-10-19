@@ -51,19 +51,19 @@ def send_summary_email(status, total_count, detailed_log, sender, password, rece
         f"Started:                 {start_time.strftime('%Y-%m-%d %H:%M:%S') if start_time else 'N/A'}\n"
         f"Finished:                {now.strftime('%Y-%m-%d %H:%M:%S')}\n"
         f"Duration:                {duration_secs:.1f} seconds\n"
-        "\n"
+        "\n\n"
         "Database Snapshot\n"
         "-----------------------------------------------------------------\n"
         f"Total Cleanup Targets:   {targets_count}\n"
         f"Total Cleanup Runs:      {total_runs}\n"
         f"Total Deleted (All):     {total_ever}\n"
-        "\n"
-        "Cleanup Statistics (current run)\n"
+        "\n\n"
+        "Cleanup Statistics\n"
         "-----------------------------------------------------------------\n"
         f"Targets Processed OK:    {successful_targets}\n"
         f"Targets With Errors:     {failed_targets}\n"
         f"Emails Deleted:          {total_count}\n"
-        "\n"
+        "\n\n"
     )
 
     # Inserts Detailed List
@@ -78,7 +78,7 @@ def send_summary_email(status, total_count, detailed_log, sender, password, rece
     body += (
         "Note: Deleted emails are moved to [Gmail]/Trash and will be\n"
         "permanently removed by Gmail after 30 days.\n\n"
-        "This is an automated report from Jobscr Behemoth Mail Cleaner.\n\n"
+        "This is an automated report from Jobscr Behemoth Mail Cleaner.\n\n\n\n"
         "Powered by ninesoftstudio"
     )
 

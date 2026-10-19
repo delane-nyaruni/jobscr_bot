@@ -169,7 +169,7 @@ def send_summary_email(status, stats, roles, board_details, start_time):
         f"Started:                 {start_time.strftime('%Y-%m-%d %H:%M:%S')}\n"
         f"Finished:                {end_time.strftime('%Y-%m-%d %H:%M:%S')}\n"
         f"Duration:                {duration:.1f} seconds\n"
-        "\n"
+        "\n\n"
         "Database Snapshot\n"
         "-----------------------------------------------------------------\n"
         f"Candidate CVs:           {total_cvs}\n"
@@ -180,7 +180,7 @@ def send_summary_email(status, stats, roles, board_details, start_time):
         f"Unreported Leads:        {unreported}\n"
         f"Awaiting Application:    {pending}\n"
         f"Already Applied:         {applied}\n"
-        "\n"
+        "\n\n"
         "Extraction Statistics\n"
         "-----------------------------------------------------------------\n"
         f"Boards Scanned:          {stats['boards_scanned']}/{active_boards}\n"
@@ -191,7 +191,7 @@ def send_summary_email(status, stats, roles, board_details, start_time):
         f"Duplicate Emails Skipped:{stats['duplicates']}\n"
         f"New Leads Saved:         {stats['leads_saved']}\n"
         f"Errors:                  {len(stats['errors'])}\n"
-        "\n"
+        "\n\n"
     )
 
     # Insert Map before Details
@@ -203,7 +203,7 @@ def send_summary_email(status, stats, roles, board_details, start_time):
         if b['links'] == 0:
             body += f"- {b['name']:<22} no job links found\n"
         else:
-            body += f"- {b['name']:<22} {b['links']} links, {b['leads']} new lead(s), {b['dupes']} duplicate(s)\n"
+            body += f"- {b['name']:<22} {b['links']}] Links, {b['leads']} Lead(s), {b['dupes']} Duplicate(s)\n"
 
     if stats['errors']:
         body += f"\nErrors Encountered [{len(stats['errors'])}] \n-----------------------------------------------------------------\n"
@@ -213,7 +213,7 @@ def send_summary_email(status, stats, roles, board_details, start_time):
     if stats['leads_saved'] > 0:
         body += "\nThese leads are now saved in the database and marked UNREPORTED.\n"
 
-    body += "\nThis is an automated report from Jobscr Behemoth Email Crawler.\n\nPowered by ninesoftstudio."
+    body += "\nThis is an automated report from Jobscr Behemoth Email Crawler.\n\n\n\nPowered by ninesoftstudio."
     
     msg = EmailMessage()
     msg['Subject'] = subject

@@ -113,34 +113,34 @@ def send_summary_email(status, stats, details, start_time):
         f"Started:                 {start_time.strftime('%Y-%m-%d %H:%M:%S')}\n"
         f"Finished:                {end_time.strftime('%Y-%m-%d %H:%M:%S')}\n"
         f"Duration:                {duration:.1f} seconds\n"
-        "\n"
+        "\n\n"
         "Database Snapshot\n"
-        "---------------------------------------------\n"
-        f"Candidate CVs:           {total_cvs}\n"
-        f"Total leads in DB:       {total_leads}\n"
-        f"Unreported leads:        {unreported}\n"
-        f"Reported, not applied:   {pending}\n"
-        f"Already applied:         {applied}\n"
-        f"Application logs (all):  {total_logs}\n"
-        f"Successful sends:        {success_logs}\n"
-        f"Failed sends:            {failure_logs}\n"
-        "\n"
-        "Application Statistics (this run)\n"
-        "---------------------------------------------\n"
-        f"Batch limit:             {MAX_APPLICATIONS_PER_RUN}\n"
-        f"Leads in queue:          {stats['queue_total']}\n"
-        f"Processing this run:     {stats['eligible']}\n"
+        "-----------------------------------------------------------------\n"
+        f"Total Candidate CVs:     {total_cvs}\n"
+        f"Total Leads in Database: {total_leads}\n"
+        f"Unreported Leads:        {unreported}\n"
+        f"Reported, Not Applied:   {pending}\n"
+        f"Already Applied:         {applied}\n"
+        f"Application Logs (All):  {total_logs}\n"
+        f"Successful Sends:        {success_logs}\n"
+        f"Failed Sends:            {failure_logs}\n"
+        "\n\n"
+        "Application Statistics \n"
+        "-----------------------------------------------------------------\n"
+        f"Batch Limit:             {MAX_APPLICATIONS_PER_RUN}\n"
+        f"Leads in Queue:          {stats['queue_total']}\n"
+        f"Processing This Run:     {stats['eligible']}\n"
         f"Processed:               {stats['processed']}\n"
-        f"Emails sent:             {stats['sent']}\n"
-        f"Skipped (no CV):         {stats['no_cv']}\n"
-        f"Failed sends:            {stats['failed']}\n"
-        "\n"
+        f"Emails Sent:             {stats['sent']}\n"
+        f"Skipped (No CV):         {stats['no_cv']}\n"
+        f"Failed Sends:            {stats['failed']}\n"
+        "\n\n"
     )
 
     # Insert the map right before the list
     body += map_text
-    body += "\nDetails by Lead\n"
-    body += "---------------------------------------------\n"
+    body += f"\nDetails by Lead [{stats['queue_total']}]\n"
+    body += "-----------------------------------------------------------------\n"
 
     if details:
         for d in details:
@@ -149,10 +149,10 @@ def send_summary_email(status, stats, details, start_time):
             if d.get('reason'):
                 body += f"           > {d['reason']}\n"
     else:
-        body += "(no leads processed this run)\n"
+        body += "(No leads processed this run)\n"
 
     if stats['errors']:
-        body += "\nErrors Encountered\n---------------------------------------------\n"
+        body += f"\nErrors Encountered [{len(stats['errors'])}]\n-----------------------------------------------------------------\n"
         for err in stats['errors']:
             body += f"- {err}\n"
 
@@ -161,7 +161,7 @@ def send_summary_email(status, stats, details, start_time):
     elif stats['sent'] > 0:
         body += "\nSuccessful leads marked as APPLIED in the DB.\n"
 
-    body += "\nThis is an automated report from Jobscr Behemoth Vacancy Mailer."
+    body += "\nThis is an automated report from Jobscr Behemoth Vacancy Mailer.\n\n\n\nPowered by ninesoftstudio"
 
     msg = EmailMessage()
     msg['Subject'] = subject
@@ -173,9 +173,8 @@ def send_summary_email(status, stats, details, start_time):
     
     # Create HTML version by swapping the map text with the colored HTML map
     html_body = body.replace(map_text, map_html)
-    # Replace spaces with &nbsp; to preserve monospace formatting in HTML
-    html_body_formatted = html_body.replace(" ", "&nbsp;").replace("\n", "<br>")
-    msg.add_alternative(f"<div style='font-family: monospace;'>{html_body_formatted}</div>", subtype='html')
+    # Use pre-wrap to maintain the ASCII formatting and preserve green color tags
+    msg.add_alternative(f"<div style='font-family: monospace; white-space: pre-wrap;'>{html_body}</div>", subtype='html')
 
     try:
         with smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT) as smtp:
