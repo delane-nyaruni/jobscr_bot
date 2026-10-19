@@ -5,6 +5,23 @@ from django.contrib import admin
 from .models import JobBoard, CandidateCV, IgnoredDomain, JobLead
 from utilities.cv_utils import parse_cv_filename
 
+# Custom Bulk Actions for Job Leads
+@admin.action(description="Mark selected leads as REPORTED (Ready for Mailer)")
+def mark_as_reported(modeladmin, request, queryset):
+    updated = queryset.update(is_reported=True)
+    modeladmin.message_user(request, f"{updated} leads successfully marked as REPORTED.")
+
+@admin.action(description="Mark selected leads as APPLIED")
+def mark_as_applied(modeladmin, request, queryset):
+    updated = queryset.update(applied=True)
+    modeladmin.message_user(request, f"{updated} leads successfully marked as APPLIED.")
+
+@admin.action(description="Reset selected leads to UNREPORTED")
+def reset_to_unreported(modeladmin, request, queryset):
+    updated = queryset.update(is_reported=False, applied=False)
+    modeladmin.message_user(request, f"{updated} leads reset to UNREPORTED and UNAPPLIED.")
+
+
 class CandidateCVForm(forms.ModelForm):
     cv_upload = forms.FileField(
         required=True, 
@@ -61,3 +78,6 @@ class JobLeadAdmin(admin.ModelAdmin):
     list_filter = ('is_reported', 'applied', 'job_board', 'country')
     search_fields = ('email_link', 'job_title', 'cv_career')
     readonly_fields = ('found_at',)
+    
+    # This adds the actions to the dropdown menu
+    actions = [mark_as_reported, mark_as_applied, reset_to_unreported]

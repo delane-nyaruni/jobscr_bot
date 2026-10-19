@@ -25,15 +25,19 @@ MAX_APPLICATIONS_PER_RUN = 10
 def _get_env(*names):
     for name in names:
         value = os.environ.get(name)
-        if value: return value
+        if value: 
+            return value
     return None
 
 
 def get_cv_for_lead(lead):
     """Finds the CV from the DB and returns the object."""
+    # 1. Try the specific CV linked to this lead
     if lead.cv_used and lead.cv_used.cv_data:
         return lead.cv_used
-    cv = CandidateCV.objects.filter(target_role=lead.cv_career).exclude(cv_data__isnull=True).first()
+        
+    # 2. Fallback to any CV that matches the target role and has data
+    cv = CandidateCV.objects.filter(target_role=lead.cv_career).exclude(cv_data__isnull=True).exclude(cv_data="").first()
     return cv
 
 
@@ -58,10 +62,17 @@ Best regards,
 
     if cv_obj and cv_obj.cv_data:
         try:
+            # Decode the Base64 string back into a PDF file
             file_data = base64.b64decode(cv_obj.cv_data)
-            msg.add_attachment(file_data, maintype='application', subtype='pdf', filename=cv_obj.filename)
+            msg.add_attachment(
+                file_data, 
+                maintype='application', 
+                subtype='pdf', 
+                filename=cv_obj.filename
+            )
         except Exception as e:
-            print(f"Decode error: {e}")
+            # Raise error so the main loop catches it and logs a FAILURE
+            raise Exception(f"Failed to decode CV attachment: {e}")
 
     return msg
 
@@ -71,7 +82,9 @@ def send_summary_email(status, stats, details, start_time):
     password = os.environ.get('EMAIL_PASSWORD')
     receiver = _get_env('EMAIL_RECEIVER', 'RECEIVER_EMAIL')
 
-    if not (sender and password and receiver): return
+    if not (sender and password and receiver): 
+        print("  [!] Missing email credentials. Skipping report.")
+        return
 
     end_time = datetime.now()
     duration = (end_time - start_time).total_seconds()
@@ -153,8 +166,9 @@ def send_summary_email(status, stats, details, start_time):
         with smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT) as smtp:
             smtp.login(sender, password)
             smtp.send_message(msg)
-    except Exception:
-        pass
+        print("  [+] Summary email sent.")
+    except Exception as e:
+        print(f"  [!] Failed to send summary email: {e}")
 
 
 def apply_jobs(live=False):
@@ -165,55 +179,111 @@ def apply_jobs(live=False):
     sender = _get_env('EMAIL_SENDER', 'EMAIL_USER')
     password = os.environ.get('EMAIL_PASSWORD')
 
-    if not sender or not password: return
+    if not sender or not password: 
+        print("  [!] Missing EMAIL_SENDER / EMAIL_PASSWORD. Exiting.")
+        return
 
+    # 1. Get leads that have been reported but not applied to yet
     queue_qs = JobLead.objects.filter(is_reported=True, applied=False)
     stats['queue_total'] = queue_qs.count()
     leads = list(queue_qs.order_by('found_at')[:MAX_APPLICATIONS_PER_RUN])
     stats['eligible'] = len(leads)
 
     if not leads:
+        print("  [-] No eligible leads to apply to.")
         send_summary_email("NO LEADS", stats, details, start_time)
         return
 
-    default_cv = CandidateCV.objects.first()
-    candidate_name = default_cv.full_name if default_cv else "Candidate"
+    print(f"  [*] {stats['queue_total']} leads in queue. Processing {stats['eligible']} this run.")
 
     for lead in leads:
         stats['processed'] += 1
+        print(f"\n    -> Lead: {lead.email_link} ({lead.job_title[:50]})")
+        
+        # 2. Find the CV
         cv_obj = get_cv_for_lead(lead)
         
         if not cv_obj:
-            ApplicationLog.objects.create(lead=lead, status="FAILURE", reason=f"CV for role '{lead.cv_career}' not found")
+            print(f"       [!] No CV found for role '{lead.cv_career}'. Skipping.")
+            ApplicationLog.objects.create(
+                lead=lead, 
+                status="FAILURE", 
+                reason=f"CV for role '{lead.cv_career}' not found"
+            )
             stats['no_cv'] += 1
-            details.append({"status": "SKIP", "email": lead.email_link, "title": lead.job_title, "reason": "No CV found"})
+            details.append({
+                "status": "SKIP", 
+                "email": lead.email_link, 
+                "title": lead.job_title, 
+                "reason": f"No CV for role '{lead.cv_career}'"
+            })
             continue
+
+        # 3. Get the name dynamically from the specific CV being used
+        candidate_name = cv_obj.full_name if cv_obj.full_name else "Candidate"
 
         if not live:
-            details.append({"status": "DRY RUN", "email": lead.email_link, "title": lead.job_title, "reason": f"Would attach {cv_obj.filename}"})
+            print(f"       [DRY RUN] Would attach {cv_obj.filename} for {candidate_name}")
+            details.append({
+                "status": "DRY RUN", 
+                "email": lead.email_link, 
+                "title": lead.job_title, 
+                "reason": f"Would attach {cv_obj.filename}"
+            })
             continue
 
+        # 4. Send the Email
         try:
             msg = compose_application(sender, cv_obj, lead, candidate_name)
             with smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT) as smtp:
                 smtp.login(sender, password)
                 smtp.send_message(msg)
 
+            # 5. Mark as applied and log success
             lead.applied = True
             lead.applied_at = datetime.now()
             lead.save()
             ApplicationLog.objects.create(lead=lead, status="SUCCESS", reason="")
             stats['sent'] += 1
-            details.append({"status": "SENT", "email": lead.email_link, "title": lead.job_title, "reason": ""})
+            print(f"       [+] Sent successfully.")
+            details.append({
+                "status": "SENT", 
+                "email": lead.email_link, 
+                "title": lead.job_title, 
+                "reason": ""
+            })
             time.sleep(RATE_LIMIT_SECONDS)
 
         except Exception as e:
-            ApplicationLog.objects.create(lead=lead, status="FAILURE", reason=str(e)[:500])
+            print(f"       [!] Failed: {e}")
+            ApplicationLog.objects.create(
+                lead=lead, 
+                status="FAILURE", 
+                reason=str(e)[:500]
+            )
             stats['failed'] += 1
             stats['errors'].append(f"{lead.email_link}: {str(e)[:100]}")
-            details.append({"status": "FAILED", "email": lead.email_link, "title": lead.job_title, "reason": str(e)[:100]})
+            details.append({
+                "status": "FAILED", 
+                "email": lead.email_link, 
+                "title": lead.job_title, 
+                "reason": str(e)[:100]
+            })
 
-    status = "SUCCESS" if not stats['errors'] and stats['sent'] > 0 else ("DRY RUN" if not live else ("PARTIAL" if stats['sent'] > 0 else "FAILED"))
+    print(f"\n  [*] Run complete. Sent: {stats['sent']}, Failed: {stats['failed']}, Skipped: {stats['no_cv']}")
+
+    # 6. Determine Status and Send Report
+    if stats['dry_run']:
+        status = "DRY RUN"
+    elif stats['eligible'] == 0:
+        status = "NO LEADS"
+    elif not stats['errors'] and stats['sent'] > 0:
+        status = "SUCCESS"
+    elif stats['sent'] > 0 or stats['no_cv'] > 0:
+        status = "PARTIAL"
+    else:
+        status = "FAILED"
+
     send_summary_email(status, stats, details, start_time)
 
 
