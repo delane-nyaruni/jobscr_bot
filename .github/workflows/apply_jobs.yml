@@ -2,18 +2,14 @@ name: Mailing Robot
 
 on:
   schedule:
-    # 11 runs/day at 2h15m intervals, resets at midnight UTC
-    - cron: '0 0,9,18 * * *'      # 00:00, 09:00, 18:00
-    - cron: '15 2,11,20 * * *'    # 02:15, 11:15, 20:15
-    - cron: '30 4,13,22 * * *'    # 04:30, 13:30, 22:30
-    - cron: '45 6,15 * * *'       # 06:45, 15:45
+    - cron: '*/20 * * * *'       # Every 20 minutes (3 times an hour, 72 times a day)
   workflow_dispatch:
 
 jobs:
   apply_jobs:
     environment: USER_CREDENTIALS
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

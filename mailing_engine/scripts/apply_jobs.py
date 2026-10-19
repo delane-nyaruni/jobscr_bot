@@ -4,7 +4,6 @@ import time
 import smtplib
 import django
 import base64
-from datetime import datetime
 from email.message import EmailMessage
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -12,6 +11,7 @@ sys.path.append(BASE_DIR)
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'dfms_backend.settings')
 django.setup()
 
+from django.utils import timezone
 from scrapping_engine.models import JobLead, CandidateCV
 from mailing_engine.models import ApplicationLog
 from utilities.geo_utils import generate_global_map
@@ -86,7 +86,7 @@ def send_summary_email(status, stats, details, start_time):
         print("  [!] Missing email credentials. Skipping report.")
         return
 
-    end_time = datetime.now()
+    end_time = timezone.now()
     duration = (end_time - start_time).total_seconds()
 
     total_leads = JobLead.objects.count()
@@ -186,7 +186,7 @@ def send_summary_email(status, stats, details, start_time):
 
 
 def apply_jobs(live=False):
-    start_time = datetime.now()
+    start_time = timezone.now()
     stats = {"dry_run": not live, "queue_total": 0, "eligible": 0, "processed": 0, "sent": 0, "failed": 0, "no_cv": 0, "errors": []}
     details = []
 
@@ -255,7 +255,7 @@ def apply_jobs(live=False):
 
             # 5. Mark as applied and log success
             lead.applied = True
-            lead.applied_at = datetime.now()
+            lead.applied_at = timezone.now()
             lead.save()
             ApplicationLog.objects.create(lead=lead, status="SUCCESS", reason="")
             stats['sent'] += 1
