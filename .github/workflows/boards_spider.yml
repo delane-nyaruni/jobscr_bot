@@ -42,7 +42,7 @@ jobs:
           EMAIL_SENDER: ${{ secrets.EMAIL_SENDER }}
           EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
           EMAIL_RECEIVER: ${{ secrets.EMAIL_RECEIVER }}
-        run: python -u scrapping_engine/scripts/board_spider.py
+        run: python -u scrapping_engine/scripts/boards_spider.py
 
       - name: Commit pending boards
         run: |
