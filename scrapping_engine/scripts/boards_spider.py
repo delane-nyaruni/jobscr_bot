@@ -122,7 +122,7 @@ def send_summary_email(status, stats, board_details, start_time):
 
     # Insert Map before Details
     body += map_text
-    body += f"\nNew Boards Added This Run [ {stats['new_added']} ]\n"
+    body += f"\n \nNew Boards Added This Run [{stats['new_added']}]\n"
     body += "---------------------------------------------\n"
 
     if board_details:
@@ -140,6 +140,8 @@ def send_summary_email(status, stats, board_details, start_time):
         body += "\nNote: New boards are added as ACTIVE by default.\n"
 
     body += "\nThis is an automated report from Jobscr Behemoth Boards Crawler."
+    body += "\n"
+    body += "\nPowered by NineSoftStudio."
 
     msg = EmailMessage()
     msg['Subject'] = subject

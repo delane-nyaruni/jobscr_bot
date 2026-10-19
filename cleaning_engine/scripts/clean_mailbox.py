@@ -78,7 +78,8 @@ def send_summary_email(status, total_count, detailed_log, sender, password, rece
     body += (
         "Note: Deleted emails are moved to [Gmail]/Trash and will be\n"
         "permanently removed by Gmail after 30 days.\n\n"
-        "This is an automated report from Jobscr Behemoth Mail Cleaner."
+        "This is an automated report from Jobscr Behemoth Mail Cleaner.\n\n"
+        "Powered by ninesoftstudio"
     )
 
     msg = EmailMessage()

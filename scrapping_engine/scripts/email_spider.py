@@ -209,8 +209,8 @@ def send_summary_email(status, stats, roles, board_details, start_time):
     if stats['leads_saved'] > 0:
         body += "\nThese leads are now saved in the database and marked UNREPORTED.\n"
 
-    body += "\nThis is an automated report from Jobscr Behemoth Email Crawler."
-
+    body += "\nThis is an automated report from Jobscr Behemoth Email Crawler.\n\nPowered by ninesoftstudio."
+    
     msg = EmailMessage()
     msg['Subject'] = subject
     msg['From'] = sender
