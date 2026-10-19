@@ -252,7 +252,7 @@ def scrape_emails():
         send_summary_email("NO ROLES", stats, [], [], start_time)
         return
 
-    # BATCHING: Get a random sample of active boards.
+    # BATCHING: Get a random sample of active boards atleast get in line as to not skip other boards.
     # This ensures all boards get scanned over time, but limits the current run to 25.
     boards = JobBoard.objects.filter(is_active=True).order_by('?')[:BATCH_SIZE]
     
