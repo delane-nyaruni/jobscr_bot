@@ -2,12 +2,37 @@
   "zimbabwe": "Africa", "south africa": "Africa", "zambia": "Africa", 
   "mozambique": "Africa", "botswana": "Africa", "namibia": "Africa", 
   "nigeria": "Africa", "kenya": "Africa", "ghana": "Africa", "egypt": "Africa",
-  "uk": "Europe", "united kingdom": "Europe", "england": "Europe", 
-  "ireland": "Europe", "germany": "Europe", "france": "Europe", 
-  "spain": "Europe", "italy": "Europe", "netherlands": "Europe",
-  "usa": "North America", "united states": "North America", 
-  "canada": "North America", "mexico": "North America",
-  "brazil": "South America", "argentina": "South America",
+  "tanzania": "Africa", "uganda": "Africa", "rwanda": "Africa", "ethiopia": "Africa",
+  "senegal": "Africa", "ivory coast": "Africa", "cameroon": "Africa", "morocco": "Africa",
+  "algeria": "Africa", "tunisia": "Africa", "libya": "Africa", "sudan": "Africa",
+  "angola": "Africa", "malawi": "Africa", "lesotho": "Africa", "eswatini": "Africa",
+  "mauritius": "Africa", "madagascar": "Africa", "somalia": "Africa", "eritrea": "Africa",
+
+  "uk": "Europe", "united kingdom": "Europe", "england": "Europe", "scotland": "Europe",
+  "wales": "Europe", "ireland": "Europe", "germany": "Europe", "france": "Europe", 
+  "spain": "Europe", "italy": "Europe", "netherlands": "Europe", "belgium": "Europe",
+  "switzerland": "Europe", "austria": "Europe", "sweden": "Europe", "norway": "Europe",
+  "denmark": "Europe", "finland": "Europe", "poland": "Europe", "portugal": "Europe",
+  "greece": "Europe", "czech republic": "Europe", "hungary": "Europe", "romania": "Europe",
+  "ukraine": "Europe", "russia": "Europe", "turkey": "Europe", "bulgaria": "Europe",
+  "croatia": "Europe", "serbia": "Europe", "slovakia": "Europe", "slovenia": "Europe",
+
+  "usa": "North America", "united states": "North America", "canada": "North America", 
+  "mexico": "North America", "guatemala": "North America", "cuba": "North America",
+  "dominican republic": "North America", "honduras": "North America", "panama": "North America",
+  "costa rica": "North America", "jamaica": "North America", "puerto rico": "North America",
+
+  "brazil": "South America", "argentina": "South America", "chile": "South America",
+  "colombia": "South America", "peru": "South America", "venezuela": "South America",
+  "ecuador": "South America", "bolivia": "South America", "paraguay": "South America",
+  "uruguay": "South America",
+
   "india": "Asia", "china": "Asia", "japan": "Asia", "singapore": "Asia",
-  "australia": "Oceania", "new zealand": "Oceania"
+  "pakistan": "Asia", "bangladesh": "Asia", "indonesia": "Asia", "philippines": "Asia",
+  "vietnam": "Asia", "thailand": "Asia", "malaysia": "Asia", "south korea": "Asia",
+  "saudi arabia": "Asia", "uae": "Asia", "united arab emirates": "Asia", "israel": "Asia",
+  "qatar": "Asia", "kuwait": "Asia", "nepal": "Asia", "sri lanka": "Asia",
+
+  "australia": "Oceania", "new zealand": "Oceania", "fiji": "Oceania",
+  "papua new guinea": "Oceania"
 }

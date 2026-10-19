@@ -102,7 +102,7 @@ def process_job_url(url, board, role, blacklist):
                 email_link=email,
                 defaults={
                     'job_url': url, 'job_board': board, 'cv_career': role,
-                    'job_title': job_title, 'country': "Zimbabwe", 'job_type': "Remote/Full-time"
+                    'job_title': job_title, 'country': board.country, 'job_type': "Remote/Full-time"
                 }
             )
             if created: added += 1
