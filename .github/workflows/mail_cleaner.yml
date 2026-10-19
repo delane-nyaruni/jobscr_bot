@@ -16,10 +16,14 @@ jobs:
         with:
           python-version: '3.12'
       - run: pip install -r requirements.txt
-      - run: python manage.py migrate --verbosity 3
+      
+      - name: Migrate Database
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           MYSQL_DB_PASSWORD: ${{ secrets.MYSQL_DB_PASSWORD }}
+        # FIXED: Added timeout and --noinput
+        run: timeout 60 python manage.py migrate --noinput --verbosity 3
+      
       - name: Run Mailbox Cleanup
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}

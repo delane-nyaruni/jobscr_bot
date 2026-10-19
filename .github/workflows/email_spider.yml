@@ -26,7 +26,8 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           MYSQL_DB_PASSWORD: ${{ secrets.MYSQL_DB_PASSWORD }}
-        run: python manage.py migrate --verbosity 3
+        # FIXED: Added timeout and --noinput to prevent hanging
+        run: timeout 60 python manage.py migrate --noinput --verbosity 3
 
       - name: Run Email Spider
         env:
@@ -37,3 +38,4 @@ jobs:
           EMAIL_RECEIVER: ${{ secrets.EMAIL_RECEIVER }}
           DJANGO_ENV: production
         run: python -u scrapping_engine/scripts/email_spider.py
+        

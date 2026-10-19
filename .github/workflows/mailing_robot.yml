@@ -2,7 +2,7 @@ name: Mailing Robot
 
 on:
   schedule:
-    - cron: '*/20 * * * *'       # Every 10 minutes
+    - cron: '*/20 * * * *'       # Every 20 minutes
   workflow_dispatch:
 
 jobs:
@@ -26,7 +26,8 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           MYSQL_DB_PASSWORD: ${{ secrets.MYSQL_DB_PASSWORD }}
-        run: python manage.py migrate --verbosity 3
+        # FIXED: Added timeout and --noinput
+        run: timeout 60 python manage.py migrate --noinput --verbosity 3
         
       - name: Run Job Application
         env:
