@@ -97,7 +97,7 @@ def send_summary_email(status, stats, board_details, start_time):
 
     body = (
         "Job Board Discovery Run Report\n"
-        "=================================================================\n"
+        "==========================================================\n"
         f"Status:              {status}\n"
         f"Started:             {start_time.strftime('%Y-%m-%d %H:%M:%S')}\n"
         f"Finished:            {end_time.strftime('%Y-%m-%d %H:%M:%S')}\n"
@@ -122,7 +122,7 @@ def send_summary_email(status, stats, board_details, start_time):
 
     # Insert Map before Details
     body += map_text
-    body += "\nNew Boards Added This Run\n"
+    body += f"\nNew Boards Added This Run [ {stats['new_added']} ]\n"
     body += "---------------------------------------------\n"
 
     if board_details:
@@ -132,7 +132,7 @@ def send_summary_email(status, stats, board_details, start_time):
         body += "(no new boards this run)\n"
 
     if stats['errors']:
-        body += "\nErrors Encountered\n---------------------------------------------\n"
+        body += f"\nErrors Encountered [{len(stats['errors'])}] \n---------------------------------------------\n"
         for err in stats['errors']:
             body += f"- {err}\n"
 

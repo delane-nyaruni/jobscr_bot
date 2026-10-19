@@ -160,7 +160,7 @@ def send_summary_email(status, stats, roles, board_details, start_time):
 
     body = (
         "Email Spider Run Report\n"
-        "=================================================================\n"
+        "==========================================================\n"
         f"Status:              {status}\n"
         f"Started:             {start_time.strftime('%Y-%m-%d %H:%M:%S')}\n"
         f"Finished:            {end_time.strftime('%Y-%m-%d %H:%M:%S')}\n"
@@ -192,7 +192,7 @@ def send_summary_email(status, stats, roles, board_details, start_time):
 
     # Insert Map before Details
     body += map_text
-    body += "\nDetails by Board\n"
+    body += f"\nDetails by Board [{stats['boards_scanned']}] \n"
     body += "---------------------------------------------\n"
 
     for b in board_details:
@@ -202,7 +202,7 @@ def send_summary_email(status, stats, roles, board_details, start_time):
             body += f"- {b['name']:<22} {b['links']} links, {b['leads']} new lead(s), {b['dupes']} duplicate(s)\n"
 
     if stats['errors']:
-        body += "\nErrors Encountered\n---------------------------------------------\n"
+        body += f"\nErrors Encountered [{len(stats['errors'])}] \n---------------------------------------------\n"
         for err in stats['errors']:
             body += f"- {err}\n"
 
