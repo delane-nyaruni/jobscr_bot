@@ -1,11 +1,8 @@
 name: Mailing Robot
 
 on:
-  push:
-    branches:
-      - main
   schedule:
-    - cron: '*/10 * * * *'       # Every 10 minutes
+    - cron: '*/20 * * * *'       # Every 10 minutes
   workflow_dispatch:
 
 jobs:
@@ -38,4 +35,4 @@ jobs:
           EMAIL_SENDER: ${{ secrets.EMAIL_SENDER }}
           EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
           EMAIL_RECEIVER: ${{ secrets.EMAIL_RECEIVER }}
-        run: python mailing_engine/scripts/apply_jobs.py --live
+        run: python -u mailing_engine/scripts/apply_jobs.py --live

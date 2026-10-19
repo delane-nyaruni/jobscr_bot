@@ -1,9 +1,6 @@
 name: Blacklist Review
 
 on:
-  push:
-    branches:
-      - main
   schedule:
     - cron: '0 0 1 * *'    # Monthly on the 1st of every month at 00:00 UTC
   workflow_dispatch:
@@ -38,4 +35,4 @@ jobs:
           EMAIL_SENDER: ${{ secrets.EMAIL_SENDER }}
           EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
           EMAIL_RECEIVER: ${{ secrets.EMAIL_RECEIVER }}
-        run: python cleaning_engine/scripts/blacklist_review.py
+        run: python -u cleaning_engine/scripts/blacklist_review.py

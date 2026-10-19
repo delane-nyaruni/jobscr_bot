@@ -1,9 +1,6 @@
 name: Clean Mailbox
 
 on:
-  push:
-    branches:
-      - main
   schedule:
     - cron: '0 5 1 * *'    # 1st of every month, 05:00 UTC
   workflow_dispatch:
@@ -30,4 +27,4 @@ jobs:
           EMAIL_SENDER: ${{ secrets.EMAIL_SENDER }}
           EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
           EMAIL_RECEIVER: ${{ secrets.EMAIL_RECEIVER }}
-        run: python cleaning_engine/scripts/clean_mailbox.py
+        run: python -u cleaning_engine/scripts/clean_mailbox.py

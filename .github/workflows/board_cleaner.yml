@@ -1,9 +1,6 @@
 name: Job Boards Cleaner
 
 on:
-  push:
-    branches:
-      - main
   schedule:
     - cron: '0 3 * * 1'    # Weekly on Monday at 03:00 UTC
   workflow_dispatch:
@@ -38,4 +35,4 @@ jobs:
           EMAIL_SENDER: ${{ secrets.EMAIL_SENDER }}
           EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
           EMAIL_RECEIVER: ${{ secrets.EMAIL_RECEIVER }}
-        run: python cleaning_engine/scripts/boards_cleaner.py
+        run: python -u cleaning_engine/scripts/boards_cleaner.py
