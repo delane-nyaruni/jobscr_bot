@@ -66,7 +66,7 @@ def send_summary_email(status, total_count, detailed_log, sender, password, rece
         "\n"
     )
 
-    # Insert Details List
+    # Inserts Detailed List
     body += f"\nDetails by System [{targets_count}]\n"
     body += "-----------------------------------------------------------------\n"
     
