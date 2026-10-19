@@ -129,7 +129,7 @@ def send_summary_email(status, stats, board_details, start_time):
         for b in board_details:
             body += f"[+] {b['name']:<20} {b['domain']}\n"
     else:
-        body += "(no new boards this run)\n"
+        body += "(No New Boards Added on this run)\n"
 
     if stats['errors']:
         body += f"\nErrors Encountered [{len(stats['errors'])}] \n-----------------------------------------------------------------\n"
