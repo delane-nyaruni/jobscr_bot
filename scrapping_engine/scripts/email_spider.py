@@ -105,10 +105,8 @@ def process_job_url(url, board, role, blacklist):
                     'job_title': job_title, 'country': "Zimbabwe", 'job_type': "Remote/Full-time"
                 }
             )
-            if created:
-                added += 1
-            else:
-                duplicates += 1
+            if created: added += 1
+            else: duplicates += 1
     except Exception:
         pass
     return (added, duplicates, junk)
@@ -157,6 +155,9 @@ def send_summary_email(status, stats, roles, board_details, start_time):
 
     subject = f"Email Spider [{status}]: {stats['leads_saved']} New Leads - {end_time.strftime('%Y-%m-%d')}"
 
+    map_text = generate_global_map(html=False)
+    map_html = generate_global_map(html=True)
+
     body = (
         "Email Spider Run Report\n"
         "=================================================================\n"
@@ -187,9 +188,12 @@ def send_summary_email(status, stats, roles, board_details, start_time):
         f"NEW LEADS SAVED:         {stats['leads_saved']}\n"
         f"Errors:                  {len(stats['errors'])}\n"
         "\n"
-        "Details by Board\n"
-        "---------------------------------------------\n"
     )
+
+    # Insert Map before Details
+    body += map_text
+    body += "\nDetails by Board\n"
+    body += "---------------------------------------------\n"
 
     for b in board_details:
         if b['links'] == 0:
@@ -205,14 +209,20 @@ def send_summary_email(status, stats, roles, board_details, start_time):
     if stats['leads_saved'] > 0:
         body += "\nThese leads are now saved in the database and marked UNREPORTED.\n"
 
-    body += generate_global_map()
     body += "\nThis is an automated report from Jobscr Behemoth Email Crawler."
 
     msg = EmailMessage()
     msg['Subject'] = subject
     msg['From'] = sender
     msg['To'] = receiver
+    
+    # Set plain text fallback
     msg.set_content(body)
+    
+    # Create HTML version by swapping the map text with the colored HTML map
+    html_body = body.replace(map_text, map_html)
+    # Use pre-wrap to maintain the ASCII formatting
+    msg.add_alternative(f"<div style='font-family: monospace; white-space: pre-wrap;'>{html_body}</div>", subtype='html')
 
     try:
         with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:

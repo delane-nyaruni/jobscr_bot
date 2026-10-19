@@ -1,0 +1,13 @@
+{
+  "zimbabwe": "Africa", "south africa": "Africa", "zambia": "Africa", 
+  "mozambique": "Africa", "botswana": "Africa", "namibia": "Africa", 
+  "nigeria": "Africa", "kenya": "Africa", "ghana": "Africa", "egypt": "Africa",
+  "uk": "Europe", "united kingdom": "Europe", "england": "Europe", 
+  "ireland": "Europe", "germany": "Europe", "france": "Europe", 
+  "spain": "Europe", "italy": "Europe", "netherlands": "Europe",
+  "usa": "North America", "united states": "North America", 
+  "canada": "North America", "mexico": "North America",
+  "brazil": "South America", "argentina": "South America",
+  "india": "Asia", "china": "Asia", "japan": "Asia", "singapore": "Asia",
+  "australia": "Oceania", "new zealand": "Oceania"
+}

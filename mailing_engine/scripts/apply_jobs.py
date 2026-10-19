@@ -101,6 +101,10 @@ def send_summary_email(status, stats, details, start_time):
     mode = "DRY RUN" if stats['dry_run'] else "LIVE"
     subject = f"Job Application [{status}] ({mode}): {stats['sent']} Sent, {stats['failed']} Failed - {end_time.strftime('%Y-%m-%d')}"
 
+    # Generate the maps (Plain text and HTML)
+    map_text = generate_global_map(html=False)
+    map_html = generate_global_map(html=True)
+
     body = (
         "Job Application Run Report\n"
         "=================================================================\n"
@@ -117,7 +121,7 @@ def send_summary_email(status, stats, details, start_time):
         f"Unreported leads:        {unreported}\n"
         f"Reported, not applied:   {pending}\n"
         f"Already applied:         {applied}\n"
-        f"Application logs (all):  {total_logs}\n"
+        "Application logs (all):  {total_logs}\n"
         f"  Successful sends:      {success_logs}\n"
         f"  Failed sends:          {failure_logs}\n"
         "\n"
@@ -131,12 +135,16 @@ def send_summary_email(status, stats, details, start_time):
         f"Skipped (no CV):         {stats['no_cv']}\n"
         f"Failed sends:            {stats['failed']}\n"
         "\n"
-        "Details by Lead\n"
-        "---------------------------------------------\n"
     )
+
+    # Insert the map right before the list
+    body += map_text
+    body += "\nDetails by Lead\n"
+    body += "---------------------------------------------\n"
 
     if details:
         for d in details:
+            # [45] width mapping for status and email
             body += f"[{d['status']:<7}] {d['email']:<40} {d['title'][:40]}\n"
             if d.get('reason'):
                 body += f"           > {d['reason']}\n"
@@ -153,14 +161,21 @@ def send_summary_email(status, stats, details, start_time):
     elif stats['sent'] > 0:
         body += "\nSuccessful leads marked as APPLIED in the DB.\n"
 
-    body += generate_global_map()
     body += "\nThis is an automated report from Jobscr Behemoth Vacancy Mailer."
 
     msg = EmailMessage()
     msg['Subject'] = subject
     msg['From'] = sender
     msg['To'] = receiver
+    
+    # Set plain text fallback
     msg.set_content(body)
+    
+    # Create HTML version by swapping the map text with the colored HTML map
+    html_body = body.replace(map_text, map_html)
+    # Replace spaces with &nbsp; to preserve monospace formatting in HTML
+    html_body_formatted = html_body.replace(" ", "&nbsp;").replace("\n", "<br>")
+    msg.add_alternative(f"<div style='font-family: monospace;'>{html_body_formatted}</div>", subtype='html')
 
     try:
         with smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT) as smtp:

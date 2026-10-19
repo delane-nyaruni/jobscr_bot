@@ -92,6 +92,9 @@ def send_summary_email(status, stats, board_details, start_time):
 
     subject = f"Board Discovery [{status}]: {stats['new_added']} Added - {end_time.strftime('%Y-%m-%d')}"
 
+    map_text = generate_global_map(html=False)
+    map_html = generate_global_map(html=True)
+
     body = (
         "Job Board Discovery Run Report\n"
         "=================================================================\n"
@@ -115,9 +118,12 @@ def send_summary_email(status, stats, board_details, start_time):
         f"NEW BOARDS ADDED:        {stats['new_added']}\n"
         f"Errors:                  {len(stats['errors'])}\n"
         "\n"
-        "New Boards Added This Run\n"
-        "---------------------------------------------\n"
     )
+
+    # Insert Map before Details
+    body += map_text
+    body += "\nNew Boards Added This Run\n"
+    body += "---------------------------------------------\n"
 
     if board_details:
         for b in board_details:
@@ -133,14 +139,20 @@ def send_summary_email(status, stats, board_details, start_time):
     if stats['new_added'] > 0:
         body += "\nNote: New boards are added as ACTIVE by default.\n"
 
-    body += generate_global_map()
     body += "\nThis is an automated report from Jobscr Behemoth Boards Crawler."
 
     msg = EmailMessage()
     msg['Subject'] = subject
     msg['From'] = sender
     msg['To'] = receiver
+    
+    # Set plain text fallback
     msg.set_content(body)
+    
+    # Create HTML version by swapping the map text with the colored HTML map
+    html_body = body.replace(map_text, map_html)
+    # Use pre-wrap to maintain the ASCII formatting
+    msg.add_alternative(f"<div style='font-family: monospace; white-space: pre-wrap;'>{html_body}</div>", subtype='html')
 
     try:
         with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:

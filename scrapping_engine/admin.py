@@ -23,17 +23,17 @@ def deactivate_boards(modeladmin, request, queryset):
 # ==========================================
 # 2. JOB LEAD BULK ACTIONS
 # ==========================================
-@admin.action(description="Mark selected leads as REPORTED (Ready for Mailer)")
+@admin.action(description="Mark leads for Mailer ")
 def mark_as_reported(modeladmin, request, queryset):
     updated = queryset.update(is_reported=True)
     modeladmin.message_user(request, f"{updated} leads successfully marked as REPORTED.")
 
-@admin.action(description="Mark selected leads as APPLIED")
+@admin.action(description="Mark leads as APPLIED")
 def mark_as_applied(modeladmin, request, queryset):
     updated = queryset.update(applied=True)
     modeladmin.message_user(request, f"{updated} leads successfully marked as APPLIED.")
 
-@admin.action(description="Reset selected leads to UNREPORTED")
+@admin.action(description="Reset leads to UNREPORTED")
 def reset_to_unreported(modeladmin, request, queryset):
     updated = queryset.update(is_reported=False, applied=False)
     modeladmin.message_user(request, f"{updated} leads reset to UNREPORTED and UNAPPLIED.")
