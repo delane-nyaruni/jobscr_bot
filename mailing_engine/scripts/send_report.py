@@ -110,4 +110,4 @@ def send_report():
 if __name__ == "__main__":
     print("Initializing Report Engine...")
     send_report()
-    print("\nReport run complete.")
+    print("\nReport run completed.")
