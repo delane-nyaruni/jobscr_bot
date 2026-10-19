@@ -49,7 +49,7 @@ def generate_global_map(html=False):
             # Green color for HTML email bars
             bar = f'<span style="color: #2ecc71;">{bar}</span>'
             
-        map_lines.append(f"[{continent:<18}] {bar:<40} ({count} leads)")
+        map_lines.append(f"[{continent:<18}]:       {bar:<40} ({count} leads)")
         
     map_lines.append("\n")
     return "\n".join(map_lines)
