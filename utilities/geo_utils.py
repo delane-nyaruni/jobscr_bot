@@ -19,7 +19,7 @@ def generate_global_map(html=False):
     sorted_continents = sorted(continent_counts.items(), key=lambda x: x[1], reverse=True)
     max_count = max(continent_counts.values()) if continent_counts else 1
     
-    map_lines = ["\n JOBSCR BEHEMOTH GLOBAL MAP REACH", "-" * 49]
+    map_lines = ["\nJOBSCR BEHEMOTH GLOBAL MAP REACH", "-" * 49]
     
     for continent, count in sorted_continents:
         bar_length = int((count / max_count) * 20)
