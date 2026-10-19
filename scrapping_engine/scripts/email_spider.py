@@ -30,8 +30,12 @@ VALID_TLDS = tuple(load_json('valid_tlds.json'))
 
 EMAIL_REGEX = r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?)*\.[a-zA-Z]{2,}'
 
+# TUNED PARAMETERS
+BATCH_SIZE = 25
 MAX_LINKS_PER_ROLE = 4
 MAX_EMAILS_PER_JOB = 4
+REQUEST_TIMEOUT = 8
+SLEEP_TIME = 8
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
@@ -83,7 +87,7 @@ def process_job_url(url, board, role, blacklist):
     duplicates = 0
     junk = 0
     try:
-        response = requests.get(url, headers=HEADERS, timeout=10)
+        response = requests.get(url, headers=HEADERS, timeout=REQUEST_TIMEOUT)
         soup = BeautifulSoup(response.text, 'html.parser')
         job_title = extract_job_title(soup)
 
@@ -115,7 +119,7 @@ def process_job_url(url, board, role, blacklist):
 def find_job_links(board_url):
     job_links = []
     try:
-        response = requests.get(board_url, headers=HEADERS, timeout=15)
+        response = requests.get(board_url, headers=HEADERS, timeout=REQUEST_TIMEOUT)
         soup = BeautifulSoup(response.text, 'html.parser')
         for anchor in soup.find_all('a', href=True):
             href = anchor['href'].strip()
@@ -248,7 +252,10 @@ def scrape_emails():
         send_summary_email("NO ROLES", stats, [], [], start_time)
         return
 
-    boards = JobBoard.objects.filter(is_active=True)
+    # BATCHING: Get a random sample of active boards.
+    # This ensures all boards get scanned over time, but limits the current run to 25.
+    boards = JobBoard.objects.filter(is_active=True).order_by('?')[:BATCH_SIZE]
+    
     if not boards.exists():
         send_summary_email("NO BOARDS", stats, roles, [], start_time)
         return
@@ -275,7 +282,7 @@ def scrape_emails():
                 stats['junk'] += junk
                 board_leads += added
                 board_dupes += dupes
-                time.sleep(1)
+                time.sleep(SLEEP_TIME)
 
         board_details.append({"name": board.name, "links": len(job_links), "leads": board_leads, "dupes": board_dupes})
 
