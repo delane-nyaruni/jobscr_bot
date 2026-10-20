@@ -1,4 +1,4 @@
-name: Blacklist Review
+name: Blacklist Checksum
 
 on:
   schedule:
@@ -35,4 +35,4 @@ jobs:
           EMAIL_SENDER: ${{ secrets.EMAIL_SENDER }}
           EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
           EMAIL_RECEIVER: ${{ secrets.EMAIL_RECEIVER }}
-        run: python -u cleaning_engine/scripts/blacklist_review.py
+        run: python -u cleaning_engine/scripts/blacklist_checksum.py

@@ -4,6 +4,7 @@ import time
 import smtplib
 import django
 import base64
+import re
 from email.message import EmailMessage
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -18,8 +19,16 @@ from utilities.geo_utils import generate_global_map
 
 SMTP_SERVER = "smtp.gmail.com"
 SMTP_PORT = 465
-RATE_LIMIT_SECONDS = 30
-MAX_APPLICATIONS_PER_RUN = 10
+RATE_LIMIT_SECONDS = 40
+MAX_APPLICATIONS_PER_RUN = 30
+
+# Mirror of the gear settings for diagnostic purposes
+GEARS = {
+    "A": {"name": "OVERDRIVE", "apps": 50, "delay": 20, "timeout": 25, "cron": "*/30 * * * *"},
+    "B": {"name": "CRUISE", "apps": 20, "delay": 30, "timeout": 15, "cron": "*/15 * * * *"},
+    "C": {"name": "ECO", "apps": 10, "delay": 40, "timeout": 15, "cron": "*/10 * * * *"},
+    "D": {"name": "TORQUE", "apps": 30, "delay": 40, "timeout": 25, "cron": "*/30 * * * *"}
+}
 
 
 def _get_env(*names):
@@ -28,6 +37,56 @@ def _get_env(*names):
         if value: 
             return value
     return None
+
+
+def check_engine_diagnostics():
+    """Reads the YAML file and compares it to the Python settings to ensure they match a known gear."""
+    print("\n--- BEHEMOTH ENGINE DIAGNOSTICS ---")
+    
+    yml_path = os.path.join(BASE_DIR, '.github', 'workflows', 'mailing_robot.yml')
+    
+    if not os.path.exists(yml_path):
+        print("  [!] Could not find mailing_robot.yml. Skipping gear check.")
+        return "UNKNOWN (YML Missing)"
+
+    with open(yml_path, 'r', encoding='utf-8') as f:
+        content = f.read()
+
+    # Use Regex to extract the YAML values
+    timeout_match = re.search(r'timeout-minutes:\s*(\d+)', content)
+    cron_match = re.search(r"cron:\s*['\"]([^'\"]+)['\"]", content)
+    
+    if not cron_match:
+        cron_match = re.search(r"cron:\s*([^\s]+)", content)
+
+    yaml_timeout = int(timeout_match.group(1)) if timeout_match else 0
+    yaml_cron = cron_match.group(1).strip() if cron_match else "Unknown"
+
+    print(f"  [*] Python Settings : Batch={MAX_APPLICATIONS_PER_RUN}, Delay={RATE_LIMIT_SECONDS}s")
+    print(f"  [*] YAML Settings   : Timeout={yaml_timeout}m, Cron={yaml_cron}")
+
+    matched_gear = None
+    for key, gear in GEARS.items():
+        if (gear['apps'] == MAX_APPLICATIONS_PER_RUN and 
+            gear['delay'] == RATE_LIMIT_SECONDS and 
+            gear['timeout'] == yaml_timeout and 
+            gear['cron'] == yaml_cron):
+            matched_gear = (key, gear)
+            break
+
+    if matched_gear:
+        print(f"  [OK] ENGINE HEALTHY: Running on GEAR {matched_gear[0]} ({matched_gear[1]['name']})")
+        status_string = f"GEAR {matched_gear[0]} ({matched_gear[1]['name']})"
+    else:
+        print("  [!!!] ENGINE OVERHEATING / MALFUNCTION DETECTED [!!!]")
+        print("  [!] The current Python and YAML settings do NOT match any known Gear Ratio.")
+        print("  [!] Please check utilities/gears_ratio_settings.py to sync your files.")
+        print("  [!] Proceeding with current unsafe settings in 5 seconds...")
+        status_string = "MALFUNCTION (Settings Mismatch)"
+        time.sleep(5) 
+
+    print("-----------------------------------\n")
+    return status_string
 
 
 def get_cv_for_lead(lead):
@@ -121,6 +180,7 @@ def send_summary_email(status, stats, details, start_time):
         "\n\n"
         "Application Statistics \n"
         "-----------------------------------------------------------------\n"
+        f"Active Engine Gear:      {stats.get('gear_status', 'OVERHAUL')}\n"
         f"Batch Limit:             {MAX_APPLICATIONS_PER_RUN}\n"
         f"Leads in Queue:          {stats['queue_total']}\n"
         f"Processing This Run:     {stats['eligible']}\n"
@@ -175,8 +235,23 @@ def send_summary_email(status, stats, details, start_time):
 
 
 def apply_jobs(live=False):
+    # RUN DIAGNOSTICS FIRST AND SAVE THE GEAR STATUS
+    gear_status = check_engine_diagnostics()
+
     start_time = timezone.now()
-    stats = {"dry_run": not live, "queue_total": 0, "eligible": 0, "processed": 0, "sent": 0, "failed": 0, "no_cv": 0, "blacklisted": 0, "errors": []}
+    # Add gear_status to the stats dictionary
+    stats = {
+        "dry_run": not live, 
+        "queue_total": 0, 
+        "eligible": 0, 
+        "processed": 0, 
+        "sent": 0, 
+        "failed": 0, 
+        "no_cv": 0, 
+        "blacklisted": 0, 
+        "errors": [],
+        "gear_status": gear_status
+    }
     details = []
 
     sender = _get_env('EMAIL_SENDER', 'EMAIL_USER')
@@ -268,7 +343,7 @@ def apply_jobs(live=False):
                 )
                 stats['blacklisted'] += 1
                 
-                # Delete the bad lead so it's out of  queue forever
+                # Delete the bad lead so it's out of queue forever
                 lead.delete()
                 
                 details.append({
@@ -311,4 +386,3 @@ def apply_jobs(live=False):
 if __name__ == "__main__":
     live = '--live' in sys.argv
     apply_jobs(live=live)
-    

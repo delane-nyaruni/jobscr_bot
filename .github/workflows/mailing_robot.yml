@@ -2,14 +2,14 @@ name: Mailing Robot
 
 on:
   schedule:
-    - cron: '*/20 * * * *'       # Every 20 minutes
+    - cron: '*/30 * * * *'       # Every 30 minutes (Gear D)
   workflow_dispatch:
 
 jobs:
   apply_jobs:
     environment: USER_CREDENTIALS
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -26,7 +26,6 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           MYSQL_DB_PASSWORD: ${{ secrets.MYSQL_DB_PASSWORD }}
-        # FIXED: Added timeout and --noinput
         run: timeout 60 python manage.py migrate --noinput --verbosity 3
         
       - name: Run Job Application

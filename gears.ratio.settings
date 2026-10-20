@@ -1,0 +1,63 @@
+================================================================================
+BEHEMOTH MAILER ENGINE - GEAR RATIO SPECIFICATIONS
+================================================================================
+Formula for Runtime: (Batch Size x Delay) / 60 + 3 mins Setup
+Requirement: Runtime MUST be less than Timeout AND less than Cron Interval.
+================================================================================
+
+>>> GEAR A: OVERDRIVE (High Speed / High Volume)
+--------------------------------------------------------------------------------
+- MAX_APPLICATIONS_PER_RUN : 50
+- RATE_LIMIT_SECONDS       : 20
+- GITHUB TIMEOUT-MINUTES   : 25
+- CRON SCHEDULE            : '*/30 * * * *' (Every 30 minutes)
+
+RATIO MATH:
+- Processing: 50 apps * 20 sec = 1000 sec (16.6 mins)
+- Setup: 3 mins
+- Total Runtime: 19.6 mins
+- Rest Time: 10.4 mins
+- THROUGHPUT: 100 emails per hour.
+
+>>> GEAR B: CRUISE (Balanced / Fast Rest)
+--------------------------------------------------------------------------------
+- MAX_APPLICATIONS_PER_RUN : 20
+- RATE_LIMIT_SECONDS       : 30
+- GITHUB TIMEOUT-MINUTES   : 15
+- CRON SCHEDULE            : '*/15 * * * *' (Every 15 minutes)
+
+RATIO MATH:
+- Processing: 20 apps * 30 sec = 600 sec (10 mins)
+- Setup: 3 mins
+- Total Runtime: 13 mins
+- Rest Time: 2 mins
+- THROUGHPUT: 80 emails per hour.
+
+>>> GEAR C: ECO (Low Volume / Quick Fire)
+--------------------------------------------------------------------------------
+- MAX_APPLICATIONS_PER_RUN : 10
+- RATE_LIMIT_SECONDS       : 40
+- GITHUB TIMEOUT-MINUTES   : 15
+- CRON SCHEDULE            : '*/10 * * * *' (Every 10 minutes)
+
+RATIO MATH:
+- Processing: 10 apps * 40 sec = 400 sec (6.6 mins)
+- Setup: 3 mins
+- Total Runtime: 9.6 mins
+- Rest Time: 0.4 mins (Tight, but safe)
+- THROUGHPUT: 60 emails per hour.
+
+>>> GEAR D: TORQUE (Heavy Lift / Long Rest)
+--------------------------------------------------------------------------------
+- MAX_APPLICATIONS_PER_RUN : 30
+- RATE_LIMIT_SECONDS       : 40
+- GITHUB TIMEOUT-MINUTES   : 25
+- CRON SCHEDULE            : '*/30 * * * *' (Every 30 minutes)
+
+RATIO MATH:
+- Processing: 30 apps * 40 sec = 1200 sec (20 mins)
+- Setup: 3 mins
+- Total Runtime: 23 mins
+- Rest Time: 7 mins
+- THROUGHPUT: 60 emails per hour.
+================================================================================
