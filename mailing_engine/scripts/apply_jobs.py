@@ -19,8 +19,8 @@ from utilities.geo_utils import generate_global_map
 
 SMTP_SERVER = "smtp.gmail.com"
 SMTP_PORT = 465
-RATE_LIMIT_SECONDS = 40
 MAX_APPLICATIONS_PER_RUN = 30
+RATE_LIMIT_SECONDS = 40
 
 # Mirror of the gear settings for diagnostic purposes
 GEARS = {
@@ -78,7 +78,7 @@ def check_engine_diagnostics():
         print(f"  [OK] ENGINE HEALTHY: Running on GEAR {matched_gear[0]} ({matched_gear[1]['name']})")
         status_string = f"GEAR {matched_gear[0]} ({matched_gear[1]['name']})"
     else:
-        print("  [!!!] ENGINE OVERHEATING / MALFUNCTION DETECTED [!!!]")
+        print("  [X] ENGINE OVERHAUL / MALFUNCTION DETECTED ")
         print("  [!] The current Python and YAML settings do NOT match any known Gear Ratio.")
         print("  [!] Please check utilities/gears_ratio_settings.py to sync your files.")
         print("  [!] Proceeding with current unsafe settings in 5 seconds...")
@@ -181,7 +181,7 @@ def send_summary_email(status, stats, details, start_time):
         "Application Statistics \n"
         "-----------------------------------------------------------------\n"
         f"Active Engine Gear:      {stats.get('gear_status', 'OVERHAUL')}\n"
-        f"Batch Limit:             {MAX_APPLICATIONS_PER_RUN}\n"
+        f"Batch Limit:             {MAX_APPLICATIONS_PER_RUN} Applications \n"
         f"Leads in Queue:          {stats['queue_total']}\n"
         f"Processing This Run:     {stats['eligible']}\n"
         f"Processed:               {stats['processed']}\n"
@@ -212,7 +212,7 @@ def send_summary_email(status, stats, details, start_time):
     if stats['dry_run']:
         body += "\nNOTE: DRY RUN. No emails were actually sent.\n"
     elif stats['sent'] > 0:
-        body += "\nSuccessful leads marked as APPLIED in the DB.\n"
+        body += "\nSuccessful leads marked as APPLIED in the Database.\n"
 
     body += "\nThis is an automated report from Jobscr Behemoth Vacancy Mailer.\n\n\n\nPowered by ninesoftstudio"
 
