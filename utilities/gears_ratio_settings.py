@@ -155,8 +155,8 @@ def detect_active_gear():
     else:
         closest_key, closest_gear, delta = find_closest_gear_by_throughput(result['throughput'])
         diff_sign = "+" if delta >= 0 else ""
-        print(f" [~]  STATUS: CUSTOM GEAR - Not matching predefined gears exactly.")
-        print(f"      Performance Tier: Near GEAR {closest_key} ({closest_gear['name']}) based on throughput. (Delta: {diff_sign}{delta:.0f} emails/hr)")
+        print(f" [~]  STATUS: CUSTOM GEAR - Not matching predefined gears.")
+        print(f"      Performance Tier: GEAR {closest_key} ({closest_gear['name']}) based on throughput. (Delta: {diff_sign}{delta:.0f} emails/hr)")
 
     if result['warnings']:
         print(f" [!!!] SAFETY: ENGINE OVERHEATING - {len(result['warnings'])} issue(s) detected")
@@ -236,7 +236,7 @@ def run_dynamic(args):
     else:
         closest_key, closest_gear, delta = find_closest_gear_by_throughput(result['throughput'])
         diff_sign = "+" if delta >= 0 else ""
-        print(f" [~]  GEAR MATCH: CUSTOM (Not Exact Match)")
+        print(f" [~]  GEAR MATCH: CUSTOM ")
         print(f"      Performance Tier: Closest to GEAR {closest_key} ({closest_gear['name']}) based on throughput. (Delta: {diff_sign}{delta:.0f} emails/hr)")
 
     if result['warnings']:

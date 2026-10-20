@@ -79,8 +79,8 @@ def check_engine_diagnostics():
     else:
         closest_key, closest_gear, delta = find_closest_gear_by_throughput(result['throughput'])
         diff_sign = "+" if delta >= 0 else ""
-        print(f"  [~] ENGINE CUSTOM: Near GEAR {closest_key} ({closest_gear['name']}) - Delta: {diff_sign}{delta:.0f} emails/hr")
-        status_string = f"CUSTOM (Near GEAR {closest_key}, Delta: {diff_sign}{delta:.0f} emails/hr)"
+        print(f"  [~] ENGINE CUSTOM: GEAR {closest_key} ({closest_gear['name']}) - Delta: {diff_sign}{delta:.0f} emails/hr")
+        status_string = f"CUSTOM (GEAR {closest_key}, Delta: {diff_sign}{delta:.0f} emails/hr)"
 
     if result['warnings']:
         print("  [!!!] SAFETY WARNINGS DETECTED:")
