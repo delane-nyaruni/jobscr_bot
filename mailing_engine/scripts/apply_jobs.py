@@ -17,18 +17,18 @@ from scrapping_engine.models import JobLead, CandidateCV, IgnoredDomain
 from mailing_engine.models import ApplicationLog
 from utilities.geo_utils import generate_global_map
 
+# Import gear logic from the single source of truth
+from utilities.gears_ratio_settings import (
+    GEARS,
+    match_gear,
+    calculate_math,
+    find_closest_gear_by_throughput,
+)
+
 SMTP_SERVER = "smtp.gmail.com"
 SMTP_PORT = 465
 MAX_APPLICATIONS_PER_RUN = 30
 RATE_LIMIT_SECONDS = 40
-
-# Mirror of the gear settings for diagnostic purposes
-GEARS = {
-    "A": {"name": "OVERDRIVE", "apps": 50, "delay": 20, "timeout": 25, "cron": "*/30 * * * *"},
-    "B": {"name": "CRUISE", "apps": 20, "delay": 30, "timeout": 15, "cron": "*/15 * * * *"},
-    "C": {"name": "ECO", "apps": 10, "delay": 40, "timeout": 15, "cron": "*/10 * * * *"},
-    "D": {"name": "TORQUE", "apps": 30, "delay": 40, "timeout": 25, "cron": "*/30 * * * *"}
-}
 
 
 def _get_env(*names):
@@ -40,8 +40,12 @@ def _get_env(*names):
 
 
 def check_engine_diagnostics():
-    """Reads the YAML file and compares it to the Python settings to ensure they match a known gear."""
+    """Reads the YAML file and classifies the engine gear (exact or custom)."""
     print("\n--- BEHEMOTH ENGINE DIAGNOSTICS ---")
+    
+    # Show all available gears so user knows what's registered
+    available_gears = ", ".join([f"{k} ({v['name']})" for k, v in GEARS.items()])
+    print(f"  [*] Available Gears: {available_gears}")
     
     yml_path = os.path.join(BASE_DIR, '.github', 'workflows', 'mailing_robot.yml')
     
@@ -52,10 +56,8 @@ def check_engine_diagnostics():
     with open(yml_path, 'r', encoding='utf-8') as f:
         content = f.read()
 
-    # Use Regex to extract the YAML values
     timeout_match = re.search(r'timeout-minutes:\s*(\d+)', content)
     cron_match = re.search(r"cron:\s*['\"]([^'\"]+)['\"]", content)
-    
     if not cron_match:
         cron_match = re.search(r"cron:\s*([^\s]+)", content)
 
@@ -65,25 +67,26 @@ def check_engine_diagnostics():
     print(f"  [*] Python Settings : Batch={MAX_APPLICATIONS_PER_RUN}, Delay={RATE_LIMIT_SECONDS}s")
     print(f"  [*] YAML Settings   : Timeout={yaml_timeout}m, Cron={yaml_cron}")
 
-    matched_gear = None
-    for key, gear in GEARS.items():
-        if (gear['apps'] == MAX_APPLICATIONS_PER_RUN and 
-            gear['delay'] == RATE_LIMIT_SECONDS and 
-            gear['timeout'] == yaml_timeout and 
-            gear['cron'] == yaml_cron):
-            matched_gear = (key, gear)
-            break
+    matched_key, matched_gear = match_gear(
+        MAX_APPLICATIONS_PER_RUN, RATE_LIMIT_SECONDS, yaml_timeout, yaml_cron
+    )
+    result = calculate_math(
+        MAX_APPLICATIONS_PER_RUN, RATE_LIMIT_SECONDS, yaml_timeout, yaml_cron
+    )
 
-    if matched_gear:
-        print(f"  [OK] ENGINE HEALTHY: Running on GEAR {matched_gear[0]} ({matched_gear[1]['name']})")
-        status_string = f"GEAR {matched_gear[0]} ({matched_gear[1]['name']})"
+    if matched_key:
+        print(f"  [OK] ENGINE HEALTHY: Running on GEAR {matched_key} ({matched_gear['name']})")
+        status_string = f"GEAR {matched_key} ({matched_gear['name']})"
     else:
-        print("  [X] ENGINE OVERHAUL / MALFUNCTION DETECTED ")
-        print("  [!] The current Python and YAML settings do NOT match any known Gear Ratio.")
-        print("  [!] Please check utilities/gears_ratio_settings.py to sync your files.")
-        print("  [!] Proceeding with current unsafe settings in 5 seconds...")
-        status_string = "MALFUNCTION (Settings Mismatch)"
-        time.sleep(5) 
+        closest_key, closest_gear, delta = find_closest_gear_by_throughput(result['throughput'])
+        diff_sign = "+" if delta >= 0 else ""
+        print(f"  [~] ENGINE CUSTOM: Near GEAR {closest_key} ({closest_gear['name']}) - Delta: {diff_sign}{delta:.0f} emails/hr")
+        status_string = f"CUSTOM (Near GEAR {closest_key}, Delta: {diff_sign}{delta:.0f} emails/hr)"
+
+    if result['warnings']:
+        print("  [!!!] SAFETY WARNINGS DETECTED:")
+        for w in result['warnings']:
+            print(f"    [X] {w}")
 
     print("-----------------------------------\n")
     return status_string
@@ -180,8 +183,8 @@ def send_summary_email(status, stats, details, start_time):
         "\n\n"
         "Application Statistics \n"
         "-----------------------------------------------------------------\n"
-        f"Active Engine Gear:      {stats.get('gear_status', 'OVERHAUL')}\n"
-        f"Batch Limit:             {MAX_APPLICATIONS_PER_RUN} Applications \n"
+        f"Active Engine Gear:      {stats.get('gear_status', 'MALFUNCTION')}\n"
+        f"Batch Limit:             {MAX_APPLICATIONS_PER_RUN} CV Applications/Run \n"
         f"Leads in Queue:          {stats['queue_total']}\n"
         f"Processing This Run:     {stats['eligible']}\n"
         f"Processed:               {stats['processed']}\n"
@@ -239,7 +242,6 @@ def apply_jobs(live=False):
     gear_status = check_engine_diagnostics()
 
     start_time = timezone.now()
-    # Add gear_status to the stats dictionary
     stats = {
         "dry_run": not live, 
         "queue_total": 0, 
@@ -345,7 +347,7 @@ def apply_jobs(live=False):
                 
                 # Delete the bad lead so it's out of queue forever
                 lead.delete()
-                
+
                 details.append({
                     "status": "DELETED", 
                     "email": lead.email_link, 
@@ -361,7 +363,7 @@ def apply_jobs(live=False):
                 stats['failed'] += 1
                 stats['errors'].append(f"{lead.email_link}: {error_msg[:100]}")
                 details.append({
-                    "status": "FAILED", 
+                    "status": "FAILED",
                     "email": lead.email_link, 
                     "title": lead.job_title, 
                     "reason": error_msg[:100]

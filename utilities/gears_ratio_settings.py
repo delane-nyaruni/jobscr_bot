@@ -7,7 +7,8 @@ GEARS = {
     "A": {"name": "OVERDRIVE", "profile": "--load (High-Speed/High-Volume)", "apps": 50, "delay": 20, "timeout": 25, "cron": "*/30 * * * *"},
     "B": {"name": "CRUISE", "profile": "--standard (Balanced/Fast-Rest)", "apps": 20, "delay": 30, "timeout": 15, "cron": "*/15 * * * *"},
     "C": {"name": "ECO", "profile": "--tests (Low-Volume/Quick-Fire)", "apps": 10, "delay": 40, "timeout": 15, "cron": "*/10 * * * *"},
-    "D": {"name": "TORQUE", "profile": "--heavy (Heavy-Lift/Long-Rest)", "apps": 30, "delay": 40, "timeout": 25, "cron": "*/30 * * * *"}
+    "D": {"name": "TORQUE", "profile": "--heavy (Heavy-Lift/Long-Rest)", "apps": 30, "delay": 40, "timeout": 25, "cron": "*/30 * * * *"},
+    "E": {"name": "IDLE", "profile": "--idle (Stealth/Steady)", "apps": 20, "delay": 40, "timeout": 20, "cron": "0 * * * *"}
 }
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -81,7 +82,6 @@ def find_closest_gear_by_throughput(custom_throughput):
         if diff < min_diff:
             min_diff = diff
             closest_key = key
-            # Calculate actual delta (custom - gear) for the + or - sign
             delta = custom_throughput - gear_throughput
             
     return closest_key, GEARS[closest_key], delta
@@ -123,7 +123,6 @@ def print_gear_list():
         interval = parse_cron_interval(v['cron'])
         throughput = v['apps'] * (60 / interval)
         
-        # Split profile like "--load (High Speed / High Volume)" into FLAG and DESCRIPTION
         if "(" in v['profile']:
             flag = v['profile'].split("(")[0].strip()
             desc = v['profile'].split("(")[1].rstrip(")").strip()
@@ -132,7 +131,6 @@ def print_gear_list():
             desc = ""
             
         print(f"  {k}   {v['name']:<11} {flag:<11} {v['apps']:<6} {v['delay']}s{'':<3} {v['timeout']}m{'':<5} {v['cron']:<16} ~{throughput:.0f} emails/hr{'':<2} {desc:<28}")
-    # print("-" * 110 + "\n")
 
 
 def detect_active_gear():
@@ -181,7 +179,7 @@ def detect_active_gear():
 def show_gear(gear_key):
     gear = GEARS.get(gear_key.upper())
     if not gear:
-        print(f"Error: Gear '{gear_key}' not found. Choose from A, B, C, or D.")
+        print(f"Error: Gear '{gear_key}' not found. Choose from A, B, C, D, or E.")
         return
 
     result = calculate_math(gear['apps'], gear['delay'], gear['timeout'], gear['cron'])
@@ -257,12 +255,11 @@ def run_dynamic(args):
 
     print("=" * 105)
 
-    # Only show APPLY instructions if the config is SAFE
     if result['warnings']:
         print("\n [X] CONFIGURATION REJECTED - DO NOT INSTALL")
         print("     This configuration is out of bounds and would cause engine failure.")
         print("     Adjust your values and try again. Use `--load`, `--standard`,")
-        print("     `--tests`, or `--heavy` to load a known safe gear.")
+        print("     `--tests`, `--heavy`, or `--idle` to load a known safe gear.")
         print("=" * 105)
     elif not matched_key:
         print("\n [!] To APPLY this custom configuration, update both files manually:")
@@ -276,13 +273,13 @@ def run_dynamic(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Jobscr Behemoth Gear Ratio Configuration Tool")
 
-    parser.add_argument("gear", nargs="?", help="Gear letter (A, B, C, D)")
+    parser.add_argument("gear", nargs="?", help="Gear letter (A, B, C, D, E)")
     parser.add_argument("--load", action="store_true", help="Show settings for Gear A (Overdrive)")
     parser.add_argument("--standard", action="store_true", help="Show settings for Gear B (Cruise)")
     parser.add_argument("--tests", action="store_true", help="Show settings for Gear C (Eco)")
     parser.add_argument("--heavy", action="store_true", help="Show settings for Gear D (Torque)")
+    parser.add_argument("--idle", action="store_true", help="Show settings for Gear E (Idle)")
 
-    # Dynamic override flags
     parser.add_argument("--batch", type=int, help="Override batch size for dynamic calculation")
     parser.add_argument("--delay", type=int, help="Override delay in seconds")
     parser.add_argument("--timeout", type=int, help="Override timeout in minutes")
@@ -306,11 +303,14 @@ if __name__ == "__main__":
     elif args.heavy or args.gear == "D" or args.gear == "d":
         show_gear("D")
         detect_active_gear()
+    elif args.idle or args.gear == "E" or args.gear == "e":
+        show_gear("E")
+        detect_active_gear()
     else:
         detect_active_gear()
         print("STATIC MODE:")
-        print("  python utilities/gears_ratio_settings.py [A/B/C/D]")
-        print("  python utilities/gears_ratio_settings.py [--load/--standard/--tests/--heavy]")
+        print("  python utilities/gears_ratio_settings.py [A/B/C/D/E]")
+        print("  python utilities/gears_ratio_settings.py [--load/--standard/--tests/--heavy/--idle]")
         print("\nDYNAMIC MODE (custom values):")
         print("  python utilities/gears_ratio_settings.py --batch 32")
         print("  python utilities/gears_ratio_settings.py --batch 35 --delay 30 --timeout 20 --cron \"*/20 * * * *\"")

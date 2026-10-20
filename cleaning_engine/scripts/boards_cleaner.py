@@ -70,7 +70,7 @@ def send_summary_email(status, dead_boards, revived_boards, start_time, total_bo
     else:
         body += "(No boards were revived.)\n"
 
-    body += "\nThis is an automated report from Jobscr Behemoth Boards Cleaner.\n\nPowered by NineSoftStudio."
+    body += "\nThis is an automated report from Jobscr Behemoth Boards Cleaner.\n\n\n\nPowered by NineSoftStudio."
 
     msg = EmailMessage()
     msg['Subject'] = subject
