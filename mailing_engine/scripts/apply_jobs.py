@@ -43,7 +43,6 @@ def check_engine_diagnostics():
     """Reads the YAML file and classifies the engine gear (exact or custom)."""
     print("\n--- BEHEMOTH ENGINE DIAGNOSTICS ---")
     
-    # Show all available gears so user knows what's registered
     available_gears = ", ".join([f"{k} ({v['name']})" for k, v in GEARS.items()])
     print(f"  [*] Available Gears: {available_gears}")
     
@@ -183,8 +182,8 @@ def send_summary_email(status, stats, details, start_time):
         "\n\n"
         "Application Statistics \n"
         "-----------------------------------------------------------------\n"
-        f"Active Engine Gear:      {stats.get('gear_status', 'MALFUNCTION')}\n"
-        f"Batch Limit:             {MAX_APPLICATIONS_PER_RUN} CV Applications/Run \n"
+        f"Active Engine Gear:      {stats.get('gear_status', 'UNKNOWN')}\n"
+        f"Batch Limit:             {MAX_APPLICATIONS_PER_RUN} CV Applications/Run\n"
         f"Leads in Queue:          {stats['queue_total']}\n"
         f"Processing This Run:     {stats['eligible']}\n"
         f"Processed:               {stats['processed']}\n"
@@ -263,10 +262,13 @@ def apply_jobs(live=False):
         print("  [!] Missing EMAIL_SENDER / EMAIL_PASSWORD. Exiting.")
         return
 
-    # 1. Get leads that have been reported but not applied to yet
-    queue_qs = JobLead.objects.filter(is_reported=True, applied=False)
+    # ============================================================
+    # KEY CHANGE: Pick up ALL unapplied leads, NEWEST first
+    # Previously: filter(is_reported=True, applied=False).order_by('found_at')
+    # ============================================================
+    queue_qs = JobLead.objects.filter(applied=False).order_by('-found_at')
     stats['queue_total'] = queue_qs.count()
-    leads = list(queue_qs.order_by('found_at')[:MAX_APPLICATIONS_PER_RUN])
+    leads = list(queue_qs[:MAX_APPLICATIONS_PER_RUN])
     stats['eligible'] = len(leads)
 
     if not leads:
@@ -274,7 +276,7 @@ def apply_jobs(live=False):
         send_summary_email("NO LEADS", stats, details, start_time)
         return
 
-    print(f"  [*] {stats['queue_total']} leads in queue. Processing {stats['eligible']} this run.")
+    print(f"  [*] {stats['queue_total']} leads in queue. Processing {stats['eligible']} this run (newest first).")
 
     for lead in leads:
         stats['processed'] += 1
@@ -318,6 +320,7 @@ def apply_jobs(live=False):
 
             lead.applied = True
             lead.applied_at = timezone.now()
+            lead.is_reported = True   # Auto-mark as reported since we're now processing all leads
             lead.save()
             ApplicationLog.objects.create(lead=lead, status="SUCCESS", reason="")
             stats['sent'] += 1
@@ -345,7 +348,6 @@ def apply_jobs(live=False):
                 )
                 stats['blacklisted'] += 1
                 
-                # Delete the bad lead so it's out of queue forever
                 lead.delete()
 
                 details.append({
