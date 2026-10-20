@@ -14,6 +14,7 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'dfms_backend.settings')
 django.setup()
 
 from cleaning_engine.models import CleanupRun, MailCleanupTarget
+from mailing_engine.models import ApplicationLog
 
 IMAP_SERVER = "imap.gmail.com"
 SMTP_SERVER = "smtp.gmail.com"
@@ -32,13 +33,14 @@ def _get_env(*names):
 
 
 def send_summary_email(status, total_count, detailed_log, sender, password, receiver,
-                       targets_count=0, successful_targets=0, failed_targets=0,
+                       manual_targets=0, auto_targets=0, successful_targets=0, failed_targets=0,
                        duration_secs=0, start_time=None):
     now = datetime.now()
     subject = f"Cleanup Report [{status}]: {total_count} Deleted - {now.strftime('%Y-%m-%d')}"
 
     total_runs = CleanupRun.objects.count()
     total_ever = CleanupRun.objects.aggregate(total=Sum('total_deleted'))['total'] or 0
+    total_targets = manual_targets + auto_targets
 
     body = (
         "Email Cleanup Run Report\n"
@@ -50,7 +52,9 @@ def send_summary_email(status, total_count, detailed_log, sender, password, rece
         "\n\n"
         "Database Snapshot\n"
         "-----------------------------------------------------------------\n"
-        f"Total Cleanup Targets:   {targets_count}\n"
+        f"Manual Cleanup Targets:  {manual_targets}\n"
+        f"Auto-Tracked (Applied):  {auto_targets}\n"
+        f"Total Cleanup Targets:   {total_targets}\n"
         f"Total Cleanup Runs:      {total_runs}\n"
         f"Total Deleted (All):     {total_ever}\n"
         "\n\n"
@@ -62,7 +66,7 @@ def send_summary_email(status, total_count, detailed_log, sender, password, rece
         "\n\n"
     )
 
-    body += f"\nDetails by System [{targets_count}]\n"
+    body += f"\nDetails by System [{total_targets}]\n"
     body += "-----------------------------------------------------------------\n"
     
     if detailed_log:
@@ -107,23 +111,45 @@ def run_cleanup():
         print("  [!] Missing email credentials (EMAIL_SENDER/USER, EMAIL_PASSWORD, EMAIL_RECEIVER/USER).")
         return
 
-    targets = list(MailCleanupTarget.objects.values_list("email", flat=True))
-    targets_count = len(targets)
+    # ==========================================================
+    # 1. Get manual targets (MailCleanupTarget)
+    # ==========================================================
+    manual_targets = list(MailCleanupTarget.objects.values_list("email", flat=True))
+    manual_count = len(manual_targets)
+    print(f"  [*] {manual_count} manual cleanup target(s) loaded")
 
-    if targets_count == 0:
-        print("  [-] No cleanup targets configured in the database.")
+    # ==========================================================
+    # 2. Get auto-targets from ApplicationLog (emails we've sent to)
+    # ==========================================================
+    auto_targets = list(
+        ApplicationLog.objects
+        .filter(status="SUCCESS", lead__isnull=False)
+        .values_list("lead__email_link", flat=True)
+        .distinct()
+    )
+    auto_count = len(auto_targets)
+    print(f"  [*] {auto_count} auto-tracked addresses from successful applications")
+
+    # ==========================================================
+    # 3. Combine and dedupe
+    # ==========================================================
+    targets_set = set(manual_targets) | set(auto_targets)
+    targets = list(targets_set)
+    total_targets = len(targets)
+    print(f"  [*] {total_targets} total unique cleanup target(s) after deduplication")
+
+    if total_targets == 0:
+        print("  [-] No cleanup targets configured (neither manual nor auto-tracked).")
         duration = (datetime.now() - start_time).total_seconds()
         send_summary_email(
             status="NO TARGETS",
             total_count=0,
-            detailed_log="No cleanup targets configured in the database.",
+            detailed_log="No cleanup targets configured in the database (manual or auto-tracked).",
             sender=sender, password=password, receiver=receiver,
-            targets_count=0, successful_targets=0, failed_targets=0,
+            manual_targets=0, auto_targets=0, successful_targets=0, failed_targets=0,
             duration_secs=duration, start_time=start_time,
         )
         return
-
-    print(f"  [*] {targets_count} cleanup target(s) loaded from database")
 
     mail = None
     total_deleted = 0
@@ -139,19 +165,27 @@ def run_cleanup():
         print("  [+] Connected and selected [Gmail]/All Mail")
 
         for idx, target in enumerate(targets, start=1):
-            print(f"  [*] ({idx}/{targets_count}) Searching for emails from: {target}")
+            # Determine the source for reporting
+            if target in manual_targets and target in auto_targets:
+                source = "MANUAL+AUTO"
+            elif target in manual_targets:
+                source = "MANUAL"
+            else:
+                source = "AUTO-APPLIED"
+
+            print(f"  [*] ({idx}/{total_targets}) [{source}] Searching for emails from: {target}")
             try:
                 status, messages = mail.search(None, f'(FROM "{target}")')
 
                 if status != "OK":
                     print(f"      [!] Search failed with status: {status}")
-                    detail_lines.append(f"- {target}: SEARCH FAILED ({status})")
+                    detail_lines.append(f"- [{source}] {target}: SEARCH FAILED ({status})")
                     failed_targets += 1
                     continue
 
                 if not messages[0]:
                     print(f"      [-] No emails found from {target}")
-                    detail_lines.append(f"- {target}: 0 emails")
+                    detail_lines.append(f"- [{source}] {target}: 0 emails")
                     successful_targets += 1
                     continue
 
@@ -172,19 +206,18 @@ def run_cleanup():
 
                 if delete_errors > 0:
                     detail_lines.append(
-                        f"- {target}: {moved}/{count} emails deleted "
-                        f"({delete_errors} failed)"
+                        f"- [{source}] {target}: {moved}/{count} emails deleted ({delete_errors} failed)"
                     )
                     failed_targets += 1
                 else:
-                    detail_lines.append(f"- {target}: {count} emails")
+                    detail_lines.append(f"- [{source}] {target}: {count} emails")
                     successful_targets += 1
 
                 print(f"      [+] Deleted {moved} email(s) from {target}")
 
             except Exception as e:
                 print(f"      [!] Error processing target {target}: {e}")
-                detail_lines.append(f"- {target}: ERROR ({str(e)[:100]})")
+                detail_lines.append(f"- [{source}] {target}: ERROR ({str(e)[:100]})")
                 failed_targets += 1
 
         mail.expunge()
@@ -199,8 +232,8 @@ def run_cleanup():
             total_count=0,
             detailed_log=f"IMAP error: {e}",
             sender=sender, password=password, receiver=receiver,
-            targets_count=targets_count, successful_targets=0,
-            failed_targets=targets_count,
+            manual_targets=manual_count, auto_targets=auto_count,
+            successful_targets=0, failed_targets=total_targets,
             duration_secs=duration, start_time=start_time,
         )
         return
@@ -212,8 +245,8 @@ def run_cleanup():
             total_count=0,
             detailed_log=f"Unexpected error: {e}",
             sender=sender, password=password, receiver=receiver,
-            targets_count=targets_count, successful_targets=successful_targets,
-            failed_targets=failed_targets + 1,
+            manual_targets=manual_count, auto_targets=auto_count,
+            successful_targets=successful_targets, failed_targets=failed_targets + 1,
             duration_secs=duration, start_time=start_time,
         )
         return
@@ -246,7 +279,8 @@ def run_cleanup():
         total_count=total_deleted,
         detailed_log=detail,
         sender=sender, password=password, receiver=receiver,
-        targets_count=targets_count,
+        manual_targets=manual_count,
+        auto_targets=auto_count,
         successful_targets=successful_targets,
         failed_targets=failed_targets,
         duration_secs=duration,
