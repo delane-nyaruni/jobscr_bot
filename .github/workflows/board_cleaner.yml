@@ -9,7 +9,6 @@ jobs:
   job_boards_cleaner:
     environment: USER_CREDENTIALS
     runs-on: ubuntu-latest
-    timeout-minutes: 120
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
