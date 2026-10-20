@@ -2,7 +2,7 @@ name: Mailing Robot
 
 on:
   schedule:
-    - cron: '*/30 * * * *'       # Every 30 minutes (Gear D)
+    - cron: '7,37 * * * *'       # Every 30 minutes (Gear D)
   workflow_dispatch:
 
 jobs:
