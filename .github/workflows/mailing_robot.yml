@@ -5,7 +5,7 @@ on:
     branches:
       - main
   schedule:
-    - cron: '0 */1 * * *' # Runs every 1 hours
+    - cron: '17 * * * *' # Runs every 1 hours
   workflow_dispatch:
 
 
