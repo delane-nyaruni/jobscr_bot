@@ -85,7 +85,7 @@ def sync_cvs_from_folder():
 
 
 if __name__ == "__main__":
-    print("Initializing Seed Engine...")
+    print("Initializing Seed Engine database...")
     seed_boards()
     seed_blacklist()
     sync_cvs_from_folder()
