@@ -19,7 +19,7 @@ class JobLead(models.Model):
         related_name="job_leads"
     )
     cv_career = models.CharField(max_length=255)
-    job_title = models.CharField(max_length=255, blank=True, default="N/A")
+    job_title = models.CharField(max_length=255, blank=True, default="Information Technology Specialist")
     job_url = models.URLField()
     email_link = models.EmailField()
     job_type = models.CharField(max_length=100, blank=True, default="Remote/Full-time")

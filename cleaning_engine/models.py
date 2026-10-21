@@ -1,7 +1,7 @@
 from django.db import models
 
 class MailCleanupTarget(models.Model):
-    """Sender addresses whose mail should be trashed from the inbox."""
+    """Sender addresses whose mail should be trashed from the inbox on a regular basis."""
     email = models.EmailField(unique=True)
     reason = models.CharField(max_length=255, blank=True)
     added_at = models.DateTimeField(auto_now_add=True)

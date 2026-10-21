@@ -5,7 +5,6 @@ class CandidateCV(models.Model):
     
     # THIS IS THE MISSING LINE
     cv_data = models.TextField(blank=True, null=True, help_text="Internal Base64 storage")
-    
     filename = models.CharField(max_length=255, unique=True)
     full_name = models.CharField(max_length=255)
     target_role = models.CharField(max_length=255)
