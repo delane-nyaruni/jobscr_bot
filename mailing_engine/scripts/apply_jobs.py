@@ -27,7 +27,7 @@ from utilities.gears_ratio_settings import (
 
 SMTP_SERVER = "smtp.gmail.com"
 SMTP_PORT = 465
-MAX_APPLICATIONS_PER_RUN = 30
+MAX_APPLICATIONS_PER_RUN = 100
 RATE_LIMIT_SECONDS = 40
 
 

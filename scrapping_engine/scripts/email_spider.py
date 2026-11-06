@@ -22,7 +22,7 @@ from utilities.email_utils import extract_emails_from_html  # IMPORTED HERE
 JOB_LINK_KEYWORDS = load_json('job_link_keywords.json')
 JUNK_TITLE_KEYWORDS = load_json('junk_title_keywords.json')
 
-BATCH_SIZE = 25
+BATCH_SIZE = 100
 MAX_LINKS_PER_ROLE = 4
 MAX_EMAILS_PER_JOB = 4
 REQUEST_TIMEOUT = 8
@@ -34,7 +34,7 @@ HEADERS = {
 
 def extract_job_title(soup):
     title_tag = soup.find('h1') or soup.find('h2')
-    return title_tag.get_text(strip=True)[:255] if title_tag else "N/A"
+    return title_tag.get_text(strip=True)[:255] if title_tag else "Software Engineer"
 
 def is_junk_page(job_title, url):
     if any(kw in job_title.lower() for kw in JUNK_TITLE_KEYWORDS): return True
