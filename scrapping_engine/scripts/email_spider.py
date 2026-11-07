@@ -22,7 +22,7 @@ from utilities.email_utils import extract_emails_from_html  # IMPORTED HERE
 JOB_LINK_KEYWORDS = load_json('job_link_keywords.json')
 JUNK_TITLE_KEYWORDS = load_json('junk_title_keywords.json')
 
-BATCH_SIZE = 50
+BATCH_SIZE = 100
 MAX_LINKS_PER_ROLE = 4
 MAX_EMAILS_PER_JOB = 4
 REQUEST_TIMEOUT = 8
