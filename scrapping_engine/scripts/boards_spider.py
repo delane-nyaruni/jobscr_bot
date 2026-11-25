@@ -218,7 +218,7 @@ def discover_boards():
 
             domain = urlparse(url).netloc.lower().replace('www.', '')
 
-            # ADDED: Check the graveyard BEFORE validating or saving
+            # ADDED: Check the graveyard BEFORE validating or saving to db
             if domain in dead_domains:
                 stats['dead_skipped'] += 1
                 continue
@@ -236,7 +236,7 @@ def discover_boards():
             known_domains.add(domain)
 
             try:
-                # === KEY CHANGE: USE THE INFERRED COUNTRY ===
+                # === KEYCHANGE: USE THE INFERRED COUNTRY ===
                 inferred_country = infer_country_from_url(url)
                 JobBoard.objects.create(name=name, url=url, country=inferred_country, is_active=True)
                 stats['new_added'] += 1
