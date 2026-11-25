@@ -212,11 +212,12 @@ def send_summary_email(status, stats, details, start_time):
     elif stats['sent'] > 0:
         body += "\nSuccessful leads marked as APPLIED in the Database.\n"
 
-    # Add the ASCII Map to the text body
+    # ==========================================
+    # MOVE THE MAP TO THE BOTTOM, JUST BEFORE SIGN-OFF
+    # ==========================================
     map_text = generate_global_map(html=False)
     body += "\n" + map_text + "\n"
 
-    # Sign-off
     body += "\nThis is an automated report from Jobscr Behemoth Vacancy Mailer.\n\n\n\nPowered by ninesoftlabs"
 
     msg = EmailMessage()
@@ -226,25 +227,10 @@ def send_summary_email(status, stats, details, start_time):
     
     msg.set_content(body)
     
-    # Build the HTML version (Text with map injected at the bottom)
     map_html = generate_global_map(html=True)
+    html_body = body.replace(map_text, map_html)
     
-    # Split the body at the map text so we can wrap text in <pre> and map in normal div
-    text_before_map, _, text_after_map = body.partition(map_text)
-    
-    final_html = (
-        "<div style='font-family: monospace; white-space: pre-wrap;'>"
-        f"{text_before_map}"
-        "</div>"
-        "<div style='margin-top: 20px; margin-bottom: 20px;'>"
-        f"{map_html}"
-        "</div>"
-        "<div style='font-family: monospace; white-space: pre-wrap;'>"
-        f"{text_after_map}"
-        "</div>"
-    )
-    
-    msg.add_alternative(final_html, subtype='html')
+    msg.add_alternative(f"<div style='font-family: monospace; white-space: pre-wrap;'>{html_body}</div>", subtype='html')
 
     try:
         with smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT) as smtp:
@@ -281,6 +267,10 @@ def apply_jobs(live=False):
         print("  [!] Missing EMAIL_SENDER / EMAIL_PASSWORD. Exiting.")
         return
 
+    # ============================================================
+    # KEY CHANGE: Pick up ALL unapplied leads, NEWEST first
+    # Previously: filter(is_reported=True, applied=False).order_by('found_at')
+    # ============================================================
     queue_qs = JobLead.objects.filter(applied=False).order_by('-found_at')
     stats['queue_total'] = queue_qs.count()
     leads = list(queue_qs[:MAX_APPLICATIONS_PER_RUN])
@@ -335,7 +325,7 @@ def apply_jobs(live=False):
 
             lead.applied = True
             lead.applied_at = timezone.now()
-            lead.is_reported = True
+            lead.is_reported = True   # Auto-mark as reported since we're now processing all leads
             lead.save()
             ApplicationLog.objects.create(lead=lead, status="SUCCESS", reason="")
             stats['sent'] += 1
@@ -362,6 +352,7 @@ def apply_jobs(live=False):
                     defaults={'reason': f"Invalid email address (SMTP: {error_msg[:50]})"}
                 )
                 stats['blacklisted'] += 1
+                
                 lead.delete()
 
                 details.append({

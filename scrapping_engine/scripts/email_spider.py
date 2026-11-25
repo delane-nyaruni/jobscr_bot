@@ -147,7 +147,6 @@ def send_summary_email(status, stats, roles, board_details, new_leads, start_tim
         "\n\n"
     )
 
-    # Show the new leads found FIRST, before board details
     body += f"\nNew Job Leads Found This Run [{len(new_leads)}]\n"
     body += "-----------------------------------------------------------------\n"
     if new_leads:
@@ -156,7 +155,6 @@ def send_summary_email(status, stats, roles, board_details, new_leads, start_tim
     else:
         body += "(No new leads found on this run)\n"
 
-    # Show the Details by Board second
     body += f"\nDetails by Board [{stats['boards_scanned']}] \n"
     body += "-----------------------------------------------------------------\n"
     for b in board_details:
@@ -167,42 +165,26 @@ def send_summary_email(status, stats, roles, board_details, new_leads, start_tim
 
     if stats['errors']:
         body += f"\nErrors Encountered [{len(stats['errors'])}] \n-----------------------------------------------------------------\n"
-        for err in stats['errors']:
-            body += f"- {err}\n"
+        for err in stats['errors']: body += f"- {err}\n"
 
     if stats['leads_saved'] > 0:
         body += "\nThese leads are now saved in the database and marked UNREPORTED.\n"
 
-    # Add the ASCII Map to the text body
     map_text = generate_global_map(html=False)
     body += "\n" + map_text + "\n"
 
-    # Sign-off
     body += "\nThis is an automated report from Jobscr Behemoth Email Crawler.\n\n\n\nPowered by ninesoftlabs."
     
     msg = EmailMessage()
     msg['Subject'] = subject
     msg['From'] = sender
     msg['To'] = receiver
-    
     msg.set_content(body)
     
-    # Build the HTML version (Text with map injected at the bottom)
     map_html = generate_global_map(html=True)
-    text_before_map, _, text_after_map = body.partition(map_text)
+    html_body = body.replace(map_text, map_html)
     
-    final_html = (
-        "<div style='font-family: monospace; white-space: pre-wrap;'>"
-        f"{text_before_map}"
-        "</div>"
-        "<div style='margin-top: 20px; margin-bottom: 20px;'>"
-        f"{map_html}"
-        "</div>"
-        "<div style='font-family: monospace; white-space: pre-wrap;'>"
-        f"{text_after_map}"
-        "</div>"
-    )
-    msg.add_alternative(final_html, subtype='html')
+    msg.add_alternative(f"<div style='font-family: monospace; white-space: pre-wrap;'>{html_body}</div>", subtype='html')
 
     try:
         with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
@@ -215,7 +197,7 @@ def scrape_emails():
     start_time = datetime.now()
     stats = {"boards_scanned": 0, "boards_no_links": 0, "job_links": 0, "pages_visited": 0, "junk": 0, "duplicates": 0, "leads_saved": 0, "errors": []}
     board_details = []
-    new_leads = [] # Track newly created leads for the email
+    new_leads = []
 
     blacklist = get_blacklist()
     cvs = CandidateCV.objects.all()
@@ -256,7 +238,6 @@ def scrape_emails():
                 board_leads += added
                 board_dupes += dupes
                 
-                # If leads were added, fetch them to put in the email list
                 if added > 0:
                     recent = JobLead.objects.filter(job_board=board, job_url=url).order_by('-found_at')[:added]
                     for r in recent:
