@@ -23,6 +23,12 @@ SMTP_PORT = 465
 GMAIL_ALL_MAIL = '"[Gmail]/All Mail"'
 GMAIL_TRASH = '"[Gmail]/Trash"'
 
+# SAFETY SETTINGS
+# "sent": Only deletes emails the system sent (Subject: "Application for...")
+# "received": Only deletes emails received from the target (replies/bounces)
+# "both": Deletes both sent and received
+CLEAN_MODE = "sent" 
+
 
 def _get_env(*names):
     for name in names:
@@ -30,6 +36,22 @@ def _get_env(*names):
         if value:
             return value
     return None
+
+
+def is_safe_target(email, sender_email):
+    """Prevents deleting the user's own emails or system emails."""
+    email = email.lower().strip()
+    sender_email = sender_email.lower().strip()
+    
+    # Never target your own email address
+    if email == sender_email:
+        return False
+    
+    # Ignore common system addresses
+    if any(x in email for x in ['noreply', 'no-reply', 'postmaster', 'mailer-daemon', 'bounce']):
+        return False
+        
+    return True
 
 
 def send_summary_email(status, total_count, detailed_log, sender, password, receiver,
@@ -46,6 +68,7 @@ def send_summary_email(status, total_count, detailed_log, sender, password, rece
         "Email Cleanup Run Report\n"
         "=================================================================\n"
         f"Status:                  {status}\n"
+        f"Mode:                    {CLEAN_MODE.upper()}\n"
         f"Started:                 {start_time.strftime('%Y-%m-%d %H:%M:%S') if start_time else 'N/A'}\n"
         f"Finished:                {now.strftime('%Y-%m-%d %H:%M:%S')}\n"
         f"Duration:                {duration_secs:.1f} seconds\n"
@@ -78,7 +101,7 @@ def send_summary_email(status, total_count, detailed_log, sender, password, rece
         "Note: Deleted emails are moved to [Gmail]/Trash and will be\n"
         "permanently removed by Gmail after 30 days.\n\n"
         "This is an automated report from Jobscr Behemoth Mail Cleaner.\n\n\n\n"
-        "Powered by ninesoftstudio"
+        "Powered by ninesoftlabs"
     )
 
     msg = EmailMessage()
@@ -101,6 +124,7 @@ def send_summary_email(status, total_count, detailed_log, sender, password, rece
 def run_cleanup():
     start_time = datetime.now()
     print("\n--- STARTING MAILBOX CLEANUP ---")
+    print(f"  [*] Mode: {CLEAN_MODE.upper()}")
     print(f"  [*] Run started at {start_time.strftime('%Y-%m-%d %H:%M:%S')}")
 
     sender = _get_env('EMAIL_SENDER', 'EMAIL_USER')
@@ -114,21 +138,23 @@ def run_cleanup():
     # ==========================================================
     # 1. Get manual targets (MailCleanupTarget)
     # ==========================================================
-    manual_targets = list(MailCleanupTarget.objects.values_list("email", flat=True))
+    raw_manual_targets = list(MailCleanupTarget.objects.values_list("email", flat=True))
+    manual_targets = [t for t in raw_manual_targets if is_safe_target(t, sender)]
     manual_count = len(manual_targets)
-    print(f"  [*] {manual_count} manual cleanup target(s) loaded")
+    print(f"  [*] {manual_count} safe manual cleanup target(s) loaded")
 
     # ==========================================================
     # 2. Get auto-targets from ApplicationLog (emails we've sent to)
     # ==========================================================
-    auto_targets = list(
+    raw_auto_targets = list(
         ApplicationLog.objects
         .filter(status="SUCCESS", lead__isnull=False)
         .values_list("lead__email_link", flat=True)
         .distinct()
     )
+    auto_targets = [t for t in raw_auto_targets if is_safe_target(t, sender)]
     auto_count = len(auto_targets)
-    print(f"  [*] {auto_count} auto-tracked addresses from successful applications")
+    print(f"  [*] {auto_count} safe auto-tracked addresses from successful applications")
 
     # ==========================================================
     # 3. Combine and dedupe
@@ -139,12 +165,12 @@ def run_cleanup():
     print(f"  [*] {total_targets} total unique cleanup target(s) after deduplication")
 
     if total_targets == 0:
-        print("  [-] No cleanup targets configured (neither manual nor auto-tracked).")
+        print("  [-] No safe cleanup targets configured (neither manual nor auto-tracked).")
         duration = (datetime.now() - start_time).total_seconds()
         send_summary_email(
             status="NO TARGETS",
             total_count=0,
-            detailed_log="No cleanup targets configured in the database (manual or auto-tracked).",
+            detailed_log="No safe cleanup targets configured in the database (manual or auto-tracked).",
             sender=sender, password=password, receiver=receiver,
             manual_targets=0, auto_targets=0, successful_targets=0, failed_targets=0,
             duration_secs=duration, start_time=start_time,
@@ -173,18 +199,30 @@ def run_cleanup():
             else:
                 source = "AUTO-APPLIED"
 
-            print(f"  [*] ({idx}/{total_targets}) [{source}] Searching for emails from: {target}")
+            print(f"  [*] ({idx}/{total_targets}) [{source}] Searching for: {target}")
+            
             try:
-                status, messages = mail.search(None, f'(FROM "{target}")')
+                # Build the search query based on CLEAN_MODE
+                if CLEAN_MODE == "sent":
+                    # Only delete emails the system sent with the application subject
+                    query = f'(TO "{target}" SUBJECT "Application for")'
+                elif CLEAN_MODE == "received":
+                    # Only delete emails received from the target (replies/bounces)
+                    query = f'(FROM "{target}")'
+                else:
+                    # Both
+                    query = f'(OR (TO "{target}" SUBJECT "Application for") (FROM "{target}"))'
+
+                status, messages = mail.search(None, query)
 
                 if status != "OK":
                     print(f"      [!] Search failed with status: {status}")
-                    detail_lines.append(f"- [{source}] {target}: SEARCH FAILED ({status})")
+                    detail_lines.append(f"- [{source}] {target}: SEARCH FAILED")
                     failed_targets += 1
                     continue
 
                 if not messages[0]:
-                    print(f"      [-] No emails found from {target}")
+                    print(f"      [-] No matching emails found for {target}")
                     detail_lines.append(f"- [{source}] {target}: 0 emails")
                     successful_targets += 1
                     continue
@@ -213,7 +251,7 @@ def run_cleanup():
                     detail_lines.append(f"- [{source}] {target}: {count} emails")
                     successful_targets += 1
 
-                print(f"      [+] Deleted {moved} email(s) from {target}")
+                print(f"      [+] Deleted {moved} email(s) for {target}")
 
             except Exception as e:
                 print(f"      [!] Error processing target {target}: {e}")

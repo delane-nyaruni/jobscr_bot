@@ -13,7 +13,7 @@ sys.path.append(BASE_DIR)
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'dfms_backend.settings')
 django.setup()
 
-from scrapping_engine.models import JobBoard, DeadLink  # ADDED DeadLink here
+from scrapping_engine.models import JobBoard, DeadLink
 from utilities.seed_utils import load_json
 from utilities.geo_utils import generate_global_map
 
@@ -90,13 +90,9 @@ def send_summary_email(status, stats, board_details, start_time):
     active_boards = JobBoard.objects.filter(is_active=True).count()
     inactive_boards = total_boards - active_boards
     
-    # ADDED: Get total dead links count
     total_dead = DeadLink.objects.count()
 
     subject = f"Board Discovery [{status}]: {stats['new_added']} Added - {end_time.strftime('%Y-%m-%d')}"
-
-    map_text = generate_global_map(html=False)
-    map_html = generate_global_map(html=True)
 
     body = (
         "Job Board Discovery Run Report\n"
@@ -111,13 +107,13 @@ def send_summary_email(status, stats, board_details, start_time):
         f"Total Boards in Database:{total_boards}\n"
         f"Active boards:           {active_boards}\n"
         f"Inactive boards:         {inactive_boards}\n"
-        f"Dead Links (Graveyard):  {total_dead}\n"  # ADDED
+        f"Dead Links (Graveyard):  {total_dead}\n"
         "\n"
         "Discovery Statistics\n"
         "-----------------------------------------------------------------\n"
         f"Search Queries Executed: {stats['queries_run']}/{len(SEARCH_QUERIES)}\n"
         f"Raw URLs Returned:       {stats['raw_urls']}\n"
-        f"Skipped (Dead Graveyard):{stats['dead_skipped']}\n"  # ADDED
+        f"Skipped (Dead Graveyard):{stats['dead_skipped']}\n"
         f"URLs Filtered Out:       {stats['filtered_out']}\n"
         f"Duplicates Skipped:      {stats['duplicates']}\n"
         f"New Boards Added:        {stats['new_added']}\n"
@@ -125,8 +121,6 @@ def send_summary_email(status, stats, board_details, start_time):
         "\n"
     )
 
-    # Insert Map before Details
-    body += map_text
     body += f"\nNew Boards Added This Run [{stats['new_added']}]\n"
     body += "-----------------------------------------------------------------\n"
 
@@ -144,21 +138,37 @@ def send_summary_email(status, stats, board_details, start_time):
     if stats['new_added'] > 0:
         body += "\nNote: New boards are added as ACTIVE by default.\n"
 
+    # Add the ASCII Map to the text body
+    map_text = generate_global_map(html=False)
+    body += "\n" + map_text + "\n"
+
+    # Sign-off
     body += "\nThis is an automated report from Jobscr Behemoth Boards Crawler.\n\n\n\n"
-    body += "Powered by NineSoftStudio."
+    body += "Powered by ninesoftlabs."
 
     msg = EmailMessage()
     msg['Subject'] = subject
     msg['From'] = sender
     msg['To'] = receiver
     
-    # Set plain text fallback
     msg.set_content(body)
     
-    # Create HTML version by swapping the map text with the colored HTML map
-    html_body = body.replace(map_text, map_html)
-    # Use pre-wrap to maintain the ASCII formatting
-    msg.add_alternative(f"<div style='font-family: monospace; white-space: pre-wrap;'>{html_body}</div>", subtype='html')
+    # Build the HTML version (Text with map injected at the bottom)
+    map_html = generate_global_map(html=True)
+    text_before_map, _, text_after_map = body.partition(map_text)
+    
+    final_html = (
+        "<div style='font-family: monospace; white-space: pre-wrap;'>"
+        f"{text_before_map}"
+        "</div>"
+        "<div style='margin-top: 20px; margin-bottom: 20px;'>"
+        f"{map_html}"
+        "</div>"
+        "<div style='font-family: monospace; white-space: pre-wrap;'>"
+        f"{text_after_map}"
+        "</div>"
+    )
+    msg.add_alternative(final_html, subtype='html')
 
     try:
         with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
@@ -184,11 +194,9 @@ def discover_boards():
         except Exception:
             pass
 
-    # ADDED: Load the dead domains from the graveyard
     dead_domains = set(DeadLink.objects.values_list('domain', flat=True))
     print(f"  [*] Loaded {len(known_domains)} live domains, {len(dead_domains)} dead domains")
 
-    # ADDED: Added "dead_skipped" to stats
     stats = {"queries_run": 0, "raw_urls": 0, "filtered_out": 0, "duplicates": 0, "new_added": 0, "dead_skipped": 0, "errors": []}
     board_details = []
     max_stage = 15
@@ -214,7 +222,6 @@ def discover_boards():
 
             domain = urlparse(url).netloc.lower().replace('www.', '')
 
-            # ADDED: Check the graveyard BEFORE validating or saving
             if domain in dead_domains:
                 stats['dead_skipped'] += 1
                 continue

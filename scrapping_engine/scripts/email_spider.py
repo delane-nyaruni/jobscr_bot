@@ -17,7 +17,7 @@ django.setup()
 from scrapping_engine.models import JobBoard, JobLead, CandidateCV
 from utilities.seed_utils import get_blacklist, load_json
 from utilities.geo_utils import generate_global_map
-from utilities.email_utils import extract_emails_from_html  # IMPORTED HERE
+from utilities.email_utils import extract_emails_from_html
 
 JOB_LINK_KEYWORDS = load_json('job_link_keywords.json')
 JUNK_TITLE_KEYWORDS = load_json('junk_title_keywords.json')
@@ -53,7 +53,6 @@ def process_job_url(url, board, role, blacklist):
         if is_junk_page(job_title, url):
             return (0, 0, 1)
 
-        # Call the centralized utility here
         emails = extract_emails_from_html(response.text, blacklist)
         if not emails: return (0, 0, 0)
 
@@ -96,7 +95,7 @@ def _get_env(*names):
         if value: return value
     return None
 
-def send_summary_email(status, stats, roles, board_details, start_time):
+def send_summary_email(status, stats, roles, board_details, new_leads, start_time):
     sender = _get_env('EMAIL_SENDER', 'EMAIL_USER')
     password = os.environ.get('EMAIL_PASSWORD')
     receiver = _get_env('EMAIL_RECEIVER', 'RECEIVER_EMAIL')
@@ -115,9 +114,6 @@ def send_summary_email(status, stats, roles, board_details, start_time):
     pending = JobLead.objects.filter(is_reported=True, applied=False).count()
 
     subject = f"Email Spider [{status}]: {stats['leads_saved']} New Leads - {end_time.strftime('%Y-%m-%d')}"
-
-    map_text = generate_global_map(html=False)
-    map_html = generate_global_map(html=True)
 
     body = (
         "Email Spider Run Report\n"
@@ -151,10 +147,18 @@ def send_summary_email(status, stats, roles, board_details, start_time):
         "\n\n"
     )
 
-    body += map_text
+    # Show the new leads found FIRST, before board details
+    body += f"\nNew Job Leads Found This Run [{len(new_leads)}]\n"
+    body += "-----------------------------------------------------------------\n"
+    if new_leads:
+        for nl in new_leads:
+            body += f"[+] {nl['email']:<35} | {nl['title'][:35]}\n"
+    else:
+        body += "(No new leads found on this run)\n"
+
+    # Show the Details by Board second
     body += f"\nDetails by Board [{stats['boards_scanned']}] \n"
     body += "-----------------------------------------------------------------\n"
-
     for b in board_details:
         if b['links'] == 0:
             body += f"- {b['name']:<22} no job links found\n"
@@ -169,7 +173,12 @@ def send_summary_email(status, stats, roles, board_details, start_time):
     if stats['leads_saved'] > 0:
         body += "\nThese leads are now saved in the database and marked UNREPORTED.\n"
 
-    body += "\nThis is an automated report from Jobscr Behemoth Email Crawler.\n\n\n\nPowered by ninesoftstudio."
+    # Add the ASCII Map to the text body
+    map_text = generate_global_map(html=False)
+    body += "\n" + map_text + "\n"
+
+    # Sign-off
+    body += "\nThis is an automated report from Jobscr Behemoth Email Crawler.\n\n\n\nPowered by ninesoftlabs."
     
     msg = EmailMessage()
     msg['Subject'] = subject
@@ -177,8 +186,23 @@ def send_summary_email(status, stats, roles, board_details, start_time):
     msg['To'] = receiver
     
     msg.set_content(body)
-    html_body = body.replace(map_text, map_html)
-    msg.add_alternative(f"<div style='font-family: monospace; white-space: pre-wrap;'>{html_body}</div>", subtype='html')
+    
+    # Build the HTML version (Text with map injected at the bottom)
+    map_html = generate_global_map(html=True)
+    text_before_map, _, text_after_map = body.partition(map_text)
+    
+    final_html = (
+        "<div style='font-family: monospace; white-space: pre-wrap;'>"
+        f"{text_before_map}"
+        "</div>"
+        "<div style='margin-top: 20px; margin-bottom: 20px;'>"
+        f"{map_html}"
+        "</div>"
+        "<div style='font-family: monospace; white-space: pre-wrap;'>"
+        f"{text_after_map}"
+        "</div>"
+    )
+    msg.add_alternative(final_html, subtype='html')
 
     try:
         with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
@@ -187,27 +211,26 @@ def send_summary_email(status, stats, roles, board_details, start_time):
     except Exception:
         pass
 
-
 def scrape_emails():
     start_time = datetime.now()
     stats = {"boards_scanned": 0, "boards_no_links": 0, "job_links": 0, "pages_visited": 0, "junk": 0, "duplicates": 0, "leads_saved": 0, "errors": []}
     board_details = []
+    new_leads = [] # Track newly created leads for the email
 
     blacklist = get_blacklist()
     cvs = CandidateCV.objects.all()
     if not cvs.exists():
-        send_summary_email("NO CVs", stats, [], [], start_time)
+        send_summary_email("NO CVs", stats, [], [], [], start_time)
         return
 
     roles = [cv.target_role for cv in cvs if cv.target_role]
     if not roles:
-        send_summary_email("NO ROLES", stats, [], [], start_time)
+        send_summary_email("NO ROLES", stats, [], [], [], start_time)
         return
 
     boards = JobBoard.objects.filter(is_active=True).order_by('?')[:BATCH_SIZE]
-    
     if not boards.exists():
-        send_summary_email("NO BOARDS", stats, roles, [], start_time)
+        send_summary_email("NO BOARDS", stats, roles, [], [], start_time)
         return
 
     for board in boards:
@@ -232,13 +255,19 @@ def scrape_emails():
                 stats['junk'] += junk
                 board_leads += added
                 board_dupes += dupes
+                
+                # If leads were added, fetch them to put in the email list
+                if added > 0:
+                    recent = JobLead.objects.filter(job_board=board, job_url=url).order_by('-found_at')[:added]
+                    for r in recent:
+                        new_leads.append({"email": r.email_link, "title": r.job_title})
+
                 time.sleep(SLEEP_TIME)
 
         board_details.append({"name": board.name, "links": len(job_links), "leads": board_leads, "dupes": board_dupes})
 
     status = "SUCCESS" if not stats['errors'] else ("PARTIAL" if stats['leads_saved'] > 0 else "FAILED")
-    send_summary_email(status, stats, roles, board_details, start_time)
-
+    send_summary_email(status, stats, roles, board_details, new_leads, start_time)
 
 if __name__ == "__main__":
     scrape_emails()
