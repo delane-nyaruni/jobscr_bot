@@ -16,6 +16,7 @@ django.setup()
 from scrapping_engine.models import JobBoard, DeadLink  # ADDED DeadLink here
 from utilities.seed_utils import load_json
 from utilities.geo_utils import generate_global_map
+from utilities.location_utils import infer_country_from_url  # IMPORTED NEW UTILITY
 
 # Load configurations from seed folder
 SEARCH_QUERIES = load_json('search_queries.json')
@@ -235,10 +236,12 @@ def discover_boards():
             known_domains.add(domain)
 
             try:
-                JobBoard.objects.create(name=name, url=url, country="Zimbabwe", is_active=True)
+                # === KEY CHANGE: USE THE INFERRED COUNTRY ===
+                inferred_country = infer_country_from_url(url)
+                JobBoard.objects.create(name=name, url=url, country=inferred_country, is_active=True)
                 stats['new_added'] += 1
                 board_details.append({"name": name, "domain": domain})
-                print(f"      [+] Added to DB: {name} ({domain})")
+                print(f"      [+] Added to DB: {name} ({domain}) - Country: {inferred_country}")
             except Exception as e:
                 stats['errors'].append(f"DB error saving {name}: {e}")
 

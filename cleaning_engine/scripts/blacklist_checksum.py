@@ -48,7 +48,7 @@ def send_summary_email(status, removed, kept, details, sender, password, receive
         "-----------------------------------------------------------------\n"
         f"{details}\n\n"
         "This is an automated report from Jobscr Behemoth Blacklist Cleaner.\n\n"
-        "Powered by Ninesoftlabs"
+        "Powered by ninesoftlabs"
     )
 
     msg = EmailMessage()
