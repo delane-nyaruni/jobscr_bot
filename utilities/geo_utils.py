@@ -1,6 +1,5 @@
 import os
 import io
-import base64
 from collections import defaultdict
 from PIL import Image, ImageDraw
 from django.conf import settings
@@ -13,7 +12,7 @@ def generate_dynamic_map_image(country_counts):
     
     if not os.path.exists(map_path):
         print(f"[!] Map image not found at {map_path}. Please add world_map.png to media/svg/")
-        return ""
+        return None
 
     try:
         # Load the map image
@@ -65,16 +64,16 @@ def generate_dynamic_map_image(country_counts):
         # Combine the base map with the overlay
         combined = Image.alpha_composite(base_img, overlay).convert("RGB")
 
-        # Save to a bytes buffer and encode to Base64
+        # Save to a bytes buffer
         buffer = io.BytesIO()
         combined.save(buffer, format="PNG")
-        img_str = base64.b64encode(buffer.getvalue()).decode('utf-8')
+        buffer.seek(0)
         
-        return f"data:image/png;base64,{img_str}"
+        return buffer
         
     except Exception as e:
         print(f"[!] Error processing map image: {e}")
-        return ""
+        return None
 
 
 def generate_global_map(html=False):
@@ -83,7 +82,7 @@ def generate_global_map(html=False):
     
     leads = JobLead.objects.all()
     if not leads.exists():
-        return ""
+        return "" if not html else ("", None)
 
     country_counts = defaultdict(int)
     for lead in leads:
@@ -122,13 +121,13 @@ def generate_global_map(html=False):
     # 2. HTML LIGHT-THEME MAP + GREEN BARS
     # ---------------------------------------------------------
     
-    # Generate the dynamic Base64 image with green targets
-    map_b64 = generate_dynamic_map_image(country_counts)
+    # Generate the dynamic image buffer
+    map_buffer = generate_dynamic_map_image(country_counts)
     
-    # If the map loaded successfully, create the <img> tag
+    # If the map loaded successfully, create the <img> tag with CID
     map_image_html = ""
-    if map_b64:
-        map_image_html = f'<img src="{map_b64}" alt="World Map" style="width: 100%; max-width: 650px; height: auto; border: 1px solid #eeeeee; border-radius: 4px;">'
+    if map_buffer:
+        map_image_html = '<img src="cid:global_map" alt="World Map" style="width: 100%; max-width: 650px; height: auto; border: 1px solid #eeeeee; border-radius: 4px;">'
     else:
         map_image_html = "<p style='color: #ff0000;'>[Map image could not be generated. Check server logs.]</p>"
 
@@ -161,4 +160,5 @@ def generate_global_map(html=False):
         </div>
     </div>
     """
-    return html_output
+    
+    return html_output, map_buffer

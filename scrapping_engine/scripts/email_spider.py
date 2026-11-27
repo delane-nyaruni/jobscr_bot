@@ -178,7 +178,7 @@ def send_summary_email(status, stats, roles, board_details, new_leads, start_tim
     # ---------------------------------------------------------
     # FIXED HTML ASSEMBLY: Separate text from the map image
     # ---------------------------------------------------------
-    map_html = generate_global_map(html=True)
+    map_html, map_buffer = generate_global_map(html=True)
     
     # Remove the ASCII map from the text so we don't have it twice
     text_only_body = body.replace(map_text, "")
@@ -189,6 +189,10 @@ def send_summary_email(status, stats, roles, board_details, new_leads, start_tim
     """
     
     msg.add_alternative(html_body, subtype='html')
+    
+    # ATTACH THE MAP IMAGE SO GMAIL CAN RENDER IT
+    if map_buffer:
+        msg.add_attachment(map_buffer.getvalue(), maintype='image', subtype='png', cid='<global_map>', disposition='inline', filename='map.png')
 
     try:
         with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
