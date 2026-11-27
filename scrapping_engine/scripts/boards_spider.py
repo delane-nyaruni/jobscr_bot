@@ -157,12 +157,20 @@ def send_summary_email(status, stats, board_details, start_time):
     # Set plain text fallback
     msg.set_content(body)
     
-    # Create HTML version by swapping the map text with the colored HTML map
+    # ---------------------------------------------------------
+    # FIXED HTML ASSEMBLY: Separate text from the map image
+    # ---------------------------------------------------------
     map_html = generate_global_map(html=True)
-    html_body = body.replace(map_text, map_html)
     
-    # Use pre-wrap to maintain the ASCII formatting
-    msg.add_alternative(f"<div style='font-family: monospace; white-space: pre-wrap;'>{html_body}</div>", subtype='html')
+    # Remove the ASCII map from the text so we don't have it twice
+    text_only_body = body.replace(map_text, "")
+    
+    html_body = f"""
+    <div style="font-family: monospace; white-space: pre-wrap;">{text_only_body}</div>
+    <div style="margin-top: 20px; text-align: center;">{map_html}</div>
+    """
+    
+    msg.add_alternative(html_body, subtype='html')
 
     try:
         with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:

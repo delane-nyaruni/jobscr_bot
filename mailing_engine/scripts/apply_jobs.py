@@ -227,10 +227,20 @@ def send_summary_email(status, stats, details, start_time):
     
     msg.set_content(body)
     
+    # ---------------------------------------------------------
+    # FIXED HTML ASSEMBLY: Separate text from the map image
+    # ---------------------------------------------------------
     map_html = generate_global_map(html=True)
-    html_body = body.replace(map_text, map_html)
     
-    msg.add_alternative(f"<div style='font-family: monospace; white-space: pre-wrap;'>{html_body}</div>", subtype='html')
+    # Remove the ASCII map from the text so we don't have it twice
+    text_only_body = body.replace(map_text, "")
+    
+    html_body = f"""
+    <div style="font-family: monospace; white-space: pre-wrap;">{text_only_body}</div>
+    <div style="margin-top: 20px; text-align: center;">{map_html}</div>
+    """
+    
+    msg.add_alternative(html_body, subtype='html')
 
     try:
         with smtplib.SMTP_SSL(SMTP_SERVER, SMTP_PORT) as smtp:

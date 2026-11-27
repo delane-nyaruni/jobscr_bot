@@ -28,9 +28,7 @@ MAX_EMAILS_PER_JOB = 4
 REQUEST_TIMEOUT = 8
 SLEEP_TIME = 8
 
-HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-}
+HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
 
 def extract_job_title(soup):
     title_tag = soup.find('h1') or soup.find('h2')
@@ -50,8 +48,7 @@ def process_job_url(url, board, role, blacklist):
         soup = BeautifulSoup(response.text, 'html.parser')
         job_title = extract_job_title(soup)
 
-        if is_junk_page(job_title, url):
-            return (0, 0, 1)
+        if is_junk_page(job_title, url): return (0, 0, 1)
 
         emails = extract_emails_from_html(response.text, blacklist)
         if not emails: return (0, 0, 0)
@@ -63,10 +60,7 @@ def process_job_url(url, board, role, blacklist):
 
             lead, created = JobLead.objects.get_or_create(
                 email_link=email,
-                defaults={
-                    'job_url': url, 'job_board': board, 'cv_career': role,
-                    'job_title': job_title, 'country': board.country, 'job_type': "Remote/Full-time"
-                }
+                defaults={'job_url': url, 'job_board': board, 'cv_career': role, 'job_title': job_title, 'country': board.country, 'job_type': "Remote/Full-time"}
             )
             if created: added += 1
             else: duplicates += 1
@@ -181,10 +175,20 @@ def send_summary_email(status, stats, roles, board_details, new_leads, start_tim
     msg['To'] = receiver
     msg.set_content(body)
     
+    # ---------------------------------------------------------
+    # FIXED HTML ASSEMBLY: Separate text from the map image
+    # ---------------------------------------------------------
     map_html = generate_global_map(html=True)
-    html_body = body.replace(map_text, map_html)
     
-    msg.add_alternative(f"<div style='font-family: monospace; white-space: pre-wrap;'>{html_body}</div>", subtype='html')
+    # Remove the ASCII map from the text so we don't have it twice
+    text_only_body = body.replace(map_text, "")
+    
+    html_body = f"""
+    <div style="font-family: monospace; white-space: pre-wrap;">{text_only_body}</div>
+    <div style="margin-top: 20px; text-align: center;">{map_html}</div>
+    """
+    
+    msg.add_alternative(html_body, subtype='html')
 
     try:
         with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
