@@ -127,7 +127,7 @@ def generate_global_map(html=False):
     # If the map loaded successfully, create the <img> tag with CID
     map_image_html = ""
     if map_buffer:
-        map_image_html = '<img src="cid:global_map" alt="World Map" style="width: 100%; max-width: 650px; height: auto; border: 1px solid #eeeeee; border-radius: 4px;">'
+        map_image_html = '<img src="cid:global_map" alt="World Map" style="width: 100%; max-width: 650px; height: auto; border: 1px solid #eeeeee; border-radius: 2px;">'
     else:
         map_image_html = "<p style='color: #ff0000;'>[Map image could not be generated. Check server logs.]</p>"
 
@@ -145,18 +145,17 @@ def generate_global_map(html=False):
         bars_html += f"<div style='margin-bottom: 4px;'>[{display_name:<18}]: &nbsp;{green_bar}&nbsp; ({count} leads)</div>"
 
     html_output = f"""
-    <div style="max-width: 650px; margin: 0 auto; padding: 15px; border: 1px solid #e0e0e0; border-radius: 8px; background-color: #ffffff; font-family: 'Courier New', monospace;">
+    <div style="max-width: 650px; margin: 0 auto; padding: 10px;background-color: #ffffff; font-family: 'Courier New', monospace;">
         <h3 style="margin-top: 0; margin-bottom: 10px; color: #333333; text-align: center; font-family: Arial, sans-serif;">Global Reach Map</h3>
         
         <div style="text-align: center; margin-bottom: 20px;">
             {map_image_html}
         </div>
 
-        <div style="font-size: 13px; color: #333333;">
+        <div style="font-size: 13px; margin: auto 0, color: #333333;">
             <div style="margin-bottom: 8px; font-weight: bold; color: #000000;">Jobscr Behemoth Global Country Reach</div>
             <div style="border-top: 1px dashed #cccccc; margin-bottom: 8px;"></div>
             {bars_html}
-            <div style="border-bottom: 1px dashed #cccccc; margin-top: 8px;"></div>
         </div>
     </div>
     """

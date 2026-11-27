@@ -23,8 +23,8 @@ JOB_LINK_KEYWORDS = load_json('job_link_keywords.json')
 JUNK_TITLE_KEYWORDS = load_json('junk_title_keywords.json')
 
 BATCH_SIZE = 200
-MAX_LINKS_PER_ROLE = 4
-MAX_EMAILS_PER_JOB = 4
+MAX_LINKS_PER_ROLE = 2
+MAX_EMAILS_PER_JOB = 2
 REQUEST_TIMEOUT = 8
 SLEEP_TIME = 8
 
